@@ -66,6 +66,7 @@ classdef PDV_TOOL < matlab.apps.AppBase
         ImportParametersButton          matlab.ui.control.Button
         BandwidthGHzLabel               matlab.ui.control.Label
         BandwidthField                  matlab.ui.control.NumericEditField
+        ImportH5DatasetButton           matlab.ui.control.Button
     end
 
     
@@ -81,6 +82,7 @@ classdef PDV_TOOL < matlab.apps.AppBase
         velocity_props          % Properties of the velocity transform
         velocity_transform      % The velocity transform and lines located on the velocity transform plot
         output                  % Time, Velocity and Error data from the fits of the velocity transform
+        HDBPullChild            % Location for storing H5 dbpull app
     end
     
     properties (Access = public)
@@ -1441,6 +1443,24 @@ classdef PDV_TOOL < matlab.apps.AppBase
     end
     
     methods (Access = public)
+        function ParentAppPullOutputs(app,Outputs)  
+            if isstruct(Outputs)
+                Outputs = Outputs.Dataset1;
+                try
+                    % Importing data variables into app properties
+                    app.data.t  = Outputs.time;
+                    app.data.v  = Outputs.voltage;
+                    app.data.fs = 1/abs(app.data.t(2) - app.data.t(1));
+                    
+                    % Computing the raw spectrogram
+                    app = compute_raw_spectrogram(app);
+                catch
+                end
+                
+                raw_props_gui_to_struct(app);
+                crop_props_gui_to_struct(app);
+            end
+        end
     end
     
 
@@ -2358,6 +2378,11 @@ classdef PDV_TOOL < matlab.apps.AppBase
             
             app.ReadyLamp.Color = 'g';
         end
+
+        % Button pushed function: ImportH5DatasetButton
+        function ImportH5DatasetButtonPushed(app, event)
+            app.HDBPullChild = H5DBPull(app);
+        end
     end
 
     % Component initialization
@@ -2368,375 +2393,440 @@ classdef PDV_TOOL < matlab.apps.AppBase
 
             % Create figure1 and hide until all components are created
             app.figure1 = uifigure('Visible', 'off');
-            app.figure1.Position = [5 5 1390 838];
+            app.figure1.Position = [5 5 1140 640];
             app.figure1.Name = 'PDV_TOOL';
             app.figure1.Scrollable = 'on';
 
             % Create RawPlot
             app.RawPlot = uiaxes(app.figure1);
-            title(app.RawPlot, '', 'Interpreter', 'latex')
-            xlabel(app.RawPlot, '', 'Interpreter', 'latex')
-            ylabel(app.RawPlot, '', 'Interpreter', 'latex')
+            title(app.RawPlot, '')
+            xlabel(app.RawPlot, '')
+            ylabel(app.RawPlot, '')
             app.RawPlot.PlotBoxAspectRatio = [1.01917808219178 1 1];
+            app.RawPlot.FontSize = 10;
             app.RawPlot.TickLabelInterpreter = 'none';
             app.RawPlot.NextPlot = 'replace';
-            app.RawPlot.Position = [257 419 420 420];
+            app.RawPlot.Position = [251 321 310 310];
 
             % Create CropPlot
             app.CropPlot = uiaxes(app.figure1);
-            title(app.CropPlot, '', 'Interpreter', 'latex')
-            xlabel(app.CropPlot, '', 'Interpreter', 'latex')
-            ylabel(app.CropPlot, '', 'Interpreter', 'latex')
+            title(app.CropPlot, '')
+            xlabel(app.CropPlot, '')
+            ylabel(app.CropPlot, '')
             app.CropPlot.PlotBoxAspectRatio = [1.02191780821918 1 1];
+            app.CropPlot.FontSize = 10;
             app.CropPlot.TickLabelInterpreter = 'none';
             app.CropPlot.YAxisLocation = 'right';
             app.CropPlot.NextPlot = 'replace';
-            app.CropPlot.Position = [676 419 420 420];
+            app.CropPlot.Position = [561 321 310 310];
 
             % Create ProcessedPlot
             app.ProcessedPlot = uiaxes(app.figure1);
-            title(app.ProcessedPlot, '', 'Interpreter', 'latex')
-            xlabel(app.ProcessedPlot, '', 'Interpreter', 'latex')
-            ylabel(app.ProcessedPlot, '', 'Interpreter', 'latex')
+            title(app.ProcessedPlot, '')
+            xlabel(app.ProcessedPlot, '')
+            ylabel(app.ProcessedPlot, '')
             app.ProcessedPlot.PlotBoxAspectRatio = [1.02191780821918 1 1];
+            app.ProcessedPlot.FontSize = 10;
             app.ProcessedPlot.TickLabelInterpreter = 'none';
             app.ProcessedPlot.NextPlot = 'replace';
-            app.ProcessedPlot.Position = [257 0 420 420];
+            app.ProcessedPlot.Position = [251 11 310 310];
 
             % Create VelocityPlot
             app.VelocityPlot = uiaxes(app.figure1);
-            title(app.VelocityPlot, '', 'Interpreter', 'latex')
-            xlabel(app.VelocityPlot, '', 'Interpreter', 'latex')
-            ylabel(app.VelocityPlot, '', 'Interpreter', 'latex')
+            title(app.VelocityPlot, '')
+            xlabel(app.VelocityPlot, '')
+            ylabel(app.VelocityPlot, '')
             app.VelocityPlot.PlotBoxAspectRatio = [1.02191780821918 1 1];
+            app.VelocityPlot.FontSize = 10;
             app.VelocityPlot.TickLabelInterpreter = 'none';
             app.VelocityPlot.YAxisLocation = 'right';
             app.VelocityPlot.NextPlot = 'replace';
-            app.VelocityPlot.Position = [676 0 420 420];
+            app.VelocityPlot.Position = [561 11 310 310];
 
             % Create CropSpectrogramButton
             app.CropSpectrogramButton = uibutton(app.figure1, 'push');
             app.CropSpectrogramButton.ButtonPushedFcn = createCallbackFcn(app, @CropSpectrogramButtonPushed, true);
-            app.CropSpectrogramButton.Position = [115 275 133 22];
+            app.CropSpectrogramButton.FontSize = 10;
+            app.CropSpectrogramButton.Position = [101 131 140 20];
             app.CropSpectrogramButton.Text = 'Crop Spectrogram';
 
             % Create ProcessBaselineButton
             app.ProcessBaselineButton = uibutton(app.figure1, 'push');
             app.ProcessBaselineButton.ButtonPushedFcn = createCallbackFcn(app, @ProcessBaselineButtonPushed, true);
-            app.ProcessBaselineButton.Position = [1105 703 133 22];
+            app.ProcessBaselineButton.FontSize = 10;
+            app.ProcessBaselineButton.Position = [881 521 140 20];
             app.ProcessBaselineButton.Text = 'Process';
 
             % Create SetROIButton
             app.SetROIButton = uibutton(app.figure1, 'push');
             app.SetROIButton.ButtonPushedFcn = createCallbackFcn(app, @SetROIButtonButtonPushed, true);
-            app.SetROIButton.Position = [116 142 133 22];
+            app.SetROIButton.FontSize = 10;
+            app.SetROIButton.Position = [101 71 140 20];
             app.SetROIButton.Text = 'Set ROI';
 
             % Create ConfirmRoiButton
             app.ConfirmRoiButton = uibutton(app.figure1, 'push');
             app.ConfirmRoiButton.ButtonPushedFcn = createCallbackFcn(app, @ConfirmRoiButtonButtonPushed, true);
-            app.ConfirmRoiButton.Position = [116 72 133 22];
+            app.ConfirmRoiButton.FontSize = 10;
+            app.ConfirmRoiButton.Position = [101 11 140 20];
             app.ConfirmRoiButton.Text = 'Confirm ROI';
 
             % Create ShiftSwitchButton
             app.ShiftSwitchButton = uibutton(app.figure1, 'push');
             app.ShiftSwitchButton.ButtonPushedFcn = createCallbackFcn(app, @ShiftSwitchButtonButtonPushed, true);
-            app.ShiftSwitchButton.Position = [1105 392 133 23];
+            app.ShiftSwitchButton.FontSize = 10;
+            app.ShiftSwitchButton.Position = [881 311 140 20];
             app.ShiftSwitchButton.Text = 'Upshift/Downshift';
 
             % Create ExtractVelocitiesButton
             app.ExtractVelocitiesButton = uibutton(app.figure1, 'push');
             app.ExtractVelocitiesButton.ButtonPushedFcn = createCallbackFcn(app, @ExtractVelocitiesButtonButtonPushed, true);
-            app.ExtractVelocitiesButton.Position = [1105 356 133 23];
+            app.ExtractVelocitiesButton.FontSize = 10;
+            app.ExtractVelocitiesButton.Position = [881 281 140 20];
             app.ExtractVelocitiesButton.Text = 'Extract Velocities';
 
             % Create SaveVelocitiesButton
             app.SaveVelocitiesButton = uibutton(app.figure1, 'push');
             app.SaveVelocitiesButton.ButtonPushedFcn = createCallbackFcn(app, @SaveVelocitiesButtonButtonPushed, true);
-            app.SaveVelocitiesButton.Position = [1105 142 133 23];
+            app.SaveVelocitiesButton.FontSize = 10;
+            app.SaveVelocitiesButton.Position = [881 101 140 20];
             app.SaveVelocitiesButton.Text = 'Save Velocities';
 
             % Create ResetROIButton
             app.ResetROIButton = uibutton(app.figure1, 'push');
             app.ResetROIButton.ButtonPushedFcn = createCallbackFcn(app, @ResetROIButtonButtonPushed, true);
-            app.ResetROIButton.Position = [116 107 133 22];
+            app.ResetROIButton.FontSize = 10;
+            app.ResetROIButton.Position = [101 41 140 20];
             app.ResetROIButton.Text = 'Reset ROI';
 
             % Create BaselineCorrectionToggle
             app.BaselineCorrectionToggle = uiswitch(app.figure1, 'slider');
             app.BaselineCorrectionToggle.ValueChangedFcn = createCallbackFcn(app, @BaselineCorrectionToggleValueChanged, true);
-            app.BaselineCorrectionToggle.Position = [1132 812 45 20];
+            app.BaselineCorrectionToggle.FontSize = 10;
+            app.BaselineCorrectionToggle.Position = [909 611 45 20];
 
             % Create ReprocessRawButton
             app.ReprocessRawButton = uibutton(app.figure1, 'push');
             app.ReprocessRawButton.ButtonPushedFcn = createCallbackFcn(app, @ReprocessRawButtonButtonPushed, true);
-            app.ReprocessRawButton.Position = [115 559 133 22];
+            app.ReprocessRawButton.FontSize = 10;
+            app.ReprocessRawButton.Position = [101 371 140 20];
             app.ReprocessRawButton.Text = 'Reprocess Raw';
 
             % Create ReadyLampLabel
             app.ReadyLampLabel = uilabel(app.figure1);
             app.ReadyLampLabel.HorizontalAlignment = 'right';
-            app.ReadyLampLabel.Position = [82 812 52 22];
+            app.ReadyLampLabel.FontSize = 10;
+            app.ReadyLampLabel.Position = [11 611 120 20];
             app.ReadyLampLabel.Text = 'Ready';
 
             % Create ReadyLamp
             app.ReadyLamp = uilamp(app.figure1);
-            app.ReadyLamp.Position = [228 813 20 20];
+            app.ReadyLamp.Position = [221 611 20 20];
 
             % Create RecalculateVelocitiesButton
             app.RecalculateVelocitiesButton = uibutton(app.figure1, 'push');
             app.RecalculateVelocitiesButton.ButtonPushedFcn = createCallbackFcn(app, @RecalculateVelocitiesButtonPushed, true);
-            app.RecalculateVelocitiesButton.Position = [1105 428 133 23];
+            app.RecalculateVelocitiesButton.FontSize = 10;
+            app.RecalculateVelocitiesButton.Position = [881 341 140 20];
             app.RecalculateVelocitiesButton.Text = 'Recalculate Velocities';
 
             % Create IdentifyOffsetButton
             app.IdentifyOffsetButton = uibutton(app.figure1, 'push');
             app.IdentifyOffsetButton.ButtonPushedFcn = createCallbackFcn(app, @IdentifyOffsetButtonPushed, true);
-            app.IdentifyOffsetButton.Position = [1105 248 133 23];
+            app.IdentifyOffsetButton.FontSize = 10;
+            app.IdentifyOffsetButton.Position = [881 191 140 20];
             app.IdentifyOffsetButton.Text = 'Identify Offset';
 
             % Create RemoveOffsetButton
             app.RemoveOffsetButton = uibutton(app.figure1, 'push');
             app.RemoveOffsetButton.ButtonPushedFcn = createCallbackFcn(app, @RemoveOffsetButtonPushed, true);
-            app.RemoveOffsetButton.Position = [1105 177 133 23];
+            app.RemoveOffsetButton.FontSize = 10;
+            app.RemoveOffsetButton.Position = [881 131 140 20];
             app.RemoveOffsetButton.Text = 'Remove Offset';
 
             % Create RawNfftPtsEditFieldLabel
             app.RawNfftPtsEditFieldLabel = uilabel(app.figure1);
             app.RawNfftPtsEditFieldLabel.HorizontalAlignment = 'right';
-            app.RawNfftPtsEditFieldLabel.Position = [54 667 79 22];
+            app.RawNfftPtsEditFieldLabel.FontSize = 10;
+            app.RawNfftPtsEditFieldLabel.Position = [11 461 120 20];
             app.RawNfftPtsEditFieldLabel.Text = 'Raw Nfft (Pts)';
 
             % Create RawNfftField
             app.RawNfftField = uieditfield(app.figure1, 'numeric');
-            app.RawNfftField.Position = [148 667 100 22];
+            app.RawNfftField.FontSize = 10;
+            app.RawNfftField.Position = [141 461 100 20];
             app.RawNfftField.Value = 512;
 
             % Create RawWindowSizePtsEditFieldLabel
             app.RawWindowSizePtsEditFieldLabel = uilabel(app.figure1);
             app.RawWindowSizePtsEditFieldLabel.HorizontalAlignment = 'right';
-            app.RawWindowSizePtsEditFieldLabel.Position = [4 631 129 22];
+            app.RawWindowSizePtsEditFieldLabel.FontSize = 10;
+            app.RawWindowSizePtsEditFieldLabel.Position = [11 431 120 20];
             app.RawWindowSizePtsEditFieldLabel.Text = 'Raw Window Size (Pts)';
 
             % Create RawWindowSizeField
             app.RawWindowSizeField = uieditfield(app.figure1, 'numeric');
-            app.RawWindowSizeField.Position = [148 631 100 22];
+            app.RawWindowSizeField.FontSize = 10;
+            app.RawWindowSizeField.Position = [141 431 100 20];
             app.RawWindowSizeField.Value = 8192;
 
             % Create StartTimesEditFieldLabel_2
             app.StartTimesEditFieldLabel_2 = uilabel(app.figure1);
             app.StartTimesEditFieldLabel_2.HorizontalAlignment = 'right';
-            app.StartTimesEditFieldLabel_2.Position = [50 523 83 22];
+            app.StartTimesEditFieldLabel_2.FontSize = 10;
+            app.StartTimesEditFieldLabel_2.Position = [11 341 120 20];
             app.StartTimesEditFieldLabel_2.Text = 'Start Time (탎)';
 
             % Create StartTimeField
             app.StartTimeField = uieditfield(app.figure1, 'numeric');
             app.StartTimeField.ValueChangedFcn = createCallbackFcn(app, @StartTimeFieldValueChanged, true);
-            app.StartTimeField.Position = [148 523 100 22];
+            app.StartTimeField.FontSize = 10;
+            app.StartTimeField.Position = [141 341 100 20];
 
             % Create EndTimesEditFieldLabel_2
             app.EndTimesEditFieldLabel_2 = uilabel(app.figure1);
             app.EndTimesEditFieldLabel_2.HorizontalAlignment = 'right';
-            app.EndTimesEditFieldLabel_2.Position = [55 487 78 22];
+            app.EndTimesEditFieldLabel_2.FontSize = 10;
+            app.EndTimesEditFieldLabel_2.Position = [11 311 120 20];
             app.EndTimesEditFieldLabel_2.Text = 'End Time (탎)';
 
             % Create EndTimeField
             app.EndTimeField = uieditfield(app.figure1, 'numeric');
             app.EndTimeField.ValueChangedFcn = createCallbackFcn(app, @EndTimeFieldValueChanged, true);
-            app.EndTimeField.Position = [148 487 100 22];
+            app.EndTimeField.FontSize = 10;
+            app.EndTimeField.Position = [141 311 100 20];
 
             % Create MinFrequencyGHzEditFieldLabel_2
             app.MinFrequencyGHzEditFieldLabel_2 = uilabel(app.figure1);
             app.MinFrequencyGHzEditFieldLabel_2.HorizontalAlignment = 'right';
-            app.MinFrequencyGHzEditFieldLabel_2.Position = [15 451 118 22];
+            app.MinFrequencyGHzEditFieldLabel_2.FontSize = 10;
+            app.MinFrequencyGHzEditFieldLabel_2.Position = [11 281 120 20];
             app.MinFrequencyGHzEditFieldLabel_2.Text = 'Min Frequency (GHz)';
 
             % Create MinFrequencyField
             app.MinFrequencyField = uieditfield(app.figure1, 'numeric');
             app.MinFrequencyField.ValueChangedFcn = createCallbackFcn(app, @MinFrequencyFieldValueChanged, true);
-            app.MinFrequencyField.Position = [148 451 100 22];
+            app.MinFrequencyField.FontSize = 10;
+            app.MinFrequencyField.Position = [141 281 100 20];
 
             % Create MaxFrequencyGHzEditFieldLabel
             app.MaxFrequencyGHzEditFieldLabel = uilabel(app.figure1);
             app.MaxFrequencyGHzEditFieldLabel.HorizontalAlignment = 'right';
-            app.MaxFrequencyGHzEditFieldLabel.Position = [12 415 121 22];
+            app.MaxFrequencyGHzEditFieldLabel.FontSize = 10;
+            app.MaxFrequencyGHzEditFieldLabel.Position = [11 251 120 20];
             app.MaxFrequencyGHzEditFieldLabel.Text = 'Max Frequency (GHz)';
 
             % Create MaxFrequencyField
             app.MaxFrequencyField = uieditfield(app.figure1, 'numeric');
             app.MaxFrequencyField.ValueChangedFcn = createCallbackFcn(app, @MaxFrequencyFieldValueChanged, true);
-            app.MaxFrequencyField.Position = [148 415 100 22];
+            app.MaxFrequencyField.FontSize = 10;
+            app.MaxFrequencyField.Position = [141 251 100 20];
 
             % Create CropNfftPtsEditFieldLabel_2
             app.CropNfftPtsEditFieldLabel_2 = uilabel(app.figure1);
             app.CropNfftPtsEditFieldLabel_2.HorizontalAlignment = 'right';
-            app.CropNfftPtsEditFieldLabel_2.Position = [51 380 82 22];
+            app.CropNfftPtsEditFieldLabel_2.FontSize = 10;
+            app.CropNfftPtsEditFieldLabel_2.Position = [11 221 120 20];
             app.CropNfftPtsEditFieldLabel_2.Text = 'Crop Nfft (Pts)';
 
             % Create CropNfftField
             app.CropNfftField = uieditfield(app.figure1, 'numeric');
-            app.CropNfftField.Position = [148 380 100 22];
+            app.CropNfftField.FontSize = 10;
+            app.CropNfftField.Position = [141 221 100 20];
             app.CropNfftField.Value = 1024;
 
             % Create CropWindowSizePtsEditFieldLabel
             app.CropWindowSizePtsEditFieldLabel = uilabel(app.figure1);
             app.CropWindowSizePtsEditFieldLabel.HorizontalAlignment = 'right';
-            app.CropWindowSizePtsEditFieldLabel.Position = [1 345 132 22];
+            app.CropWindowSizePtsEditFieldLabel.FontSize = 10;
+            app.CropWindowSizePtsEditFieldLabel.Position = [11 191 120 20];
             app.CropWindowSizePtsEditFieldLabel.Text = 'Crop Window Size (Pts)';
 
             % Create CropWindowSizeField
             app.CropWindowSizeField = uieditfield(app.figure1, 'numeric');
-            app.CropWindowSizeField.Position = [148 345 100 22];
+            app.CropWindowSizeField.FontSize = 10;
+            app.CropWindowSizeField.Position = [141 191 100 20];
             app.CropWindowSizeField.Value = 512;
 
             % Create CropOverlapPtsLabel
             app.CropOverlapPtsLabel = uilabel(app.figure1);
             app.CropOverlapPtsLabel.HorizontalAlignment = 'right';
-            app.CropOverlapPtsLabel.Position = [29 310 104 22];
+            app.CropOverlapPtsLabel.FontSize = 10;
+            app.CropOverlapPtsLabel.Position = [11 161 120 20];
             app.CropOverlapPtsLabel.Text = 'Crop Overlap (Pts)';
 
             % Create CropOverlapField
             app.CropOverlapField = uieditfield(app.figure1, 'numeric');
-            app.CropOverlapField.Position = [148 310 100 22];
+            app.CropOverlapField.FontSize = 10;
+            app.CropOverlapField.Position = [141 161 100 20];
 
             % Create BreakoutStartTimesEditFieldLabel
             app.BreakoutStartTimesEditFieldLabel = uilabel(app.figure1);
             app.BreakoutStartTimesEditFieldLabel.HorizontalAlignment = 'right';
-            app.BreakoutStartTimesEditFieldLabel.Position = [1227 776 135 22];
+            app.BreakoutStartTimesEditFieldLabel.FontSize = 10;
+            app.BreakoutStartTimesEditFieldLabel.Position = [991 581 140 20];
             app.BreakoutStartTimesEditFieldLabel.Text = 'Breakout Start Time (탎)';
 
             % Create BreakoutStartTimeField
             app.BreakoutStartTimeField = uieditfield(app.figure1, 'numeric');
             app.BreakoutStartTimeField.ValueChangedFcn = createCallbackFcn(app, @BreakoutStartTimeFieldValueChanged, true);
-            app.BreakoutStartTimeField.Position = [1105 776 100 22];
+            app.BreakoutStartTimeField.FontSize = 10;
+            app.BreakoutStartTimeField.Position = [881 581 100 20];
 
             % Create BreakoutEndTimesEditFieldLabel
             app.BreakoutEndTimesEditFieldLabel = uilabel(app.figure1);
             app.BreakoutEndTimesEditFieldLabel.HorizontalAlignment = 'right';
-            app.BreakoutEndTimesEditFieldLabel.Position = [1228 740 130 22];
+            app.BreakoutEndTimesEditFieldLabel.FontSize = 10;
+            app.BreakoutEndTimesEditFieldLabel.Position = [991 551 140 20];
             app.BreakoutEndTimesEditFieldLabel.Text = 'Breakout End Time (탎)';
 
             % Create BreakoutEndTimeField
             app.BreakoutEndTimeField = uieditfield(app.figure1, 'numeric');
             app.BreakoutEndTimeField.ValueChangedFcn = createCallbackFcn(app, @BreakoutEndTimeFieldValueChanged, true);
-            app.BreakoutEndTimeField.Position = [1105 740 100 22];
+            app.BreakoutEndTimeField.FontSize = 10;
+            app.BreakoutEndTimeField.Position = [881 551 100 20];
 
             % Create BaselineFrequencyGhzEditFieldLabel
             app.BaselineFrequencyGhzEditFieldLabel = uilabel(app.figure1);
             app.BaselineFrequencyGhzEditFieldLabel.HorizontalAlignment = 'right';
-            app.BaselineFrequencyGhzEditFieldLabel.Position = [1228 667 142 22];
+            app.BaselineFrequencyGhzEditFieldLabel.FontSize = 10;
+            app.BaselineFrequencyGhzEditFieldLabel.Position = [991 491 140 20];
             app.BaselineFrequencyGhzEditFieldLabel.Text = 'Baseline Frequency (Ghz)';
 
             % Create BaselineFrequencyField
             app.BaselineFrequencyField = uieditfield(app.figure1, 'numeric');
-            app.BaselineFrequencyField.Position = [1105 667 100 22];
+            app.BaselineFrequencyField.FontSize = 10;
+            app.BaselineFrequencyField.Position = [881 491 100 20];
 
             % Create RemoveBaselineLabel
             app.RemoveBaselineLabel = uilabel(app.figure1);
-            app.RemoveBaselineLabel.Position = [1230 812 109 22];
+            app.RemoveBaselineLabel.FontSize = 10;
+            app.RemoveBaselineLabel.Position = [991 611 140 20];
             app.RemoveBaselineLabel.Text = ' Remove Baseline?';
 
             % Create ProbeLaserWavelengthnmLabel
             app.ProbeLaserWavelengthnmLabel = uilabel(app.figure1);
-            app.ProbeLaserWavelengthnmLabel.Position = [1228 464 163 23];
+            app.ProbeLaserWavelengthnmLabel.FontSize = 10;
+            app.ProbeLaserWavelengthnmLabel.Position = [991 371 140 20];
             app.ProbeLaserWavelengthnmLabel.Text = 'Probe Laser Wavelength (nm)';
 
             % Create WavelengthField
             app.WavelengthField = uieditfield(app.figure1, 'numeric');
-            app.WavelengthField.Position = [1105 465 100 22];
+            app.WavelengthField.Position = [881 371 100 20];
             app.WavelengthField.Value = 1550;
 
             % Create OffsetSampleStartTimesLabel
             app.OffsetSampleStartTimesLabel = uilabel(app.figure1);
-            app.OffsetSampleStartTimesLabel.Position = [1228 320 163 23];
+            app.OffsetSampleStartTimesLabel.FontSize = 10;
+            app.OffsetSampleStartTimesLabel.Position = [991 250 140 20];
             app.OffsetSampleStartTimesLabel.Text = 'Offset Sample Start Time (탎)';
 
             % Create OffsetSampleStartTimeField
             app.OffsetSampleStartTimeField = uieditfield(app.figure1, 'numeric');
             app.OffsetSampleStartTimeField.ValueChangedFcn = createCallbackFcn(app, @OffsetSampleStartTimeFieldValueChanged, true);
-            app.OffsetSampleStartTimeField.Position = [1105 321 100 22];
+            app.OffsetSampleStartTimeField.Position = [881 251 100 20];
 
             % Create OffsetSampleEndTimesLabel
             app.OffsetSampleEndTimesLabel = uilabel(app.figure1);
-            app.OffsetSampleEndTimesLabel.Position = [1228 284 158 23];
+            app.OffsetSampleEndTimesLabel.FontSize = 10;
+            app.OffsetSampleEndTimesLabel.Position = [991 221 140 20];
             app.OffsetSampleEndTimesLabel.Text = 'Offset Sample End Time (탎)';
 
             % Create OffsetSampleEndTimeField
             app.OffsetSampleEndTimeField = uieditfield(app.figure1, 'numeric');
             app.OffsetSampleEndTimeField.ValueChangedFcn = createCallbackFcn(app, @OffsetSampleEndTimeFieldValueChanged, true);
-            app.OffsetSampleEndTimeField.Position = [1105 285 100 22];
+            app.OffsetSampleEndTimeField.Position = [881 221 100 20];
 
             % Create ZeroVeloctymsLabel_2
             app.ZeroVeloctymsLabel_2 = uilabel(app.figure1);
-            app.ZeroVeloctymsLabel_2.Position = [1228 212 142 23];
+            app.ZeroVeloctymsLabel_2.FontSize = 10;
+            app.ZeroVeloctymsLabel_2.Position = [991 160 140 20];
             app.ZeroVeloctymsLabel_2.Text = '''Zero'' Velocty (m/s)';
 
             % Create ZeroVelocityField
             app.ZeroVelocityField = uieditfield(app.figure1, 'numeric');
-            app.ZeroVelocityField.Position = [1105 213 100 22];
+            app.ZeroVelocityField.Position = [881 161 100 20];
 
             % Create FloatingBaselineToggle
             app.FloatingBaselineToggle = uiswitch(app.figure1, 'slider');
-            app.FloatingBaselineToggle.Position = [1132 633 45 20];
+            app.FloatingBaselineToggle.FontSize = 10;
+            app.FloatingBaselineToggle.Position = [910 461 45 20];
             app.FloatingBaselineToggle.Value = 'On';
 
             % Create FloatingBaselineLabel
             app.FloatingBaselineLabel = uilabel(app.figure1);
-            app.FloatingBaselineLabel.Position = [1230 632 101 22];
+            app.FloatingBaselineLabel.FontSize = 10;
+            app.FloatingBaselineLabel.Position = [991 461 140 20];
             app.FloatingBaselineLabel.Text = ' Floating Baseline';
 
             % Create ImportTraceButton
             app.ImportTraceButton = uibutton(app.figure1, 'push');
             app.ImportTraceButton.ButtonPushedFcn = createCallbackFcn(app, @ImportTraceButtonPushed, true);
-            app.ImportTraceButton.Position = [116 775 131 22];
+            app.ImportTraceButton.FontSize = 10;
+            app.ImportTraceButton.Position = [101 551 140 20];
             app.ImportTraceButton.Text = 'Import Trace';
 
             % Create SaveSessionButton
             app.SaveSessionButton = uibutton(app.figure1, 'push');
             app.SaveSessionButton.ButtonPushedFcn = createCallbackFcn(app, @SaveSessionButtonPushed, true);
-            app.SaveSessionButton.Position = [1106 37 132 22];
+            app.SaveSessionButton.FontSize = 10;
+            app.SaveSessionButton.Position = [881 11 140 20];
             app.SaveSessionButton.Text = 'Save Session';
 
             % Create SaveParametersButton
             app.SaveParametersButton = uibutton(app.figure1, 'push');
             app.SaveParametersButton.ButtonPushedFcn = createCallbackFcn(app, @SaveParametersButtonPushed, true);
-            app.SaveParametersButton.Position = [1106 107 132 22];
+            app.SaveParametersButton.FontSize = 10;
+            app.SaveParametersButton.Position = [881 71 140 20];
             app.SaveParametersButton.Text = 'Save Parameters';
 
             % Create ImportSessionButton
             app.ImportSessionButton = uibutton(app.figure1, 'push');
             app.ImportSessionButton.ButtonPushedFcn = createCallbackFcn(app, @ImportSessionButtonPushed, true);
-            app.ImportSessionButton.Position = [115.5 739 131 22];
+            app.ImportSessionButton.FontSize = 10;
+            app.ImportSessionButton.Position = [101 521 140 20];
             app.ImportSessionButton.Text = 'Import Session';
 
             % Create SaveFigureButton
             app.SaveFigureButton = uibutton(app.figure1, 'push');
             app.SaveFigureButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFigureButtonPushed, true);
-            app.SaveFigureButton.Position = [1106 72 132 22];
+            app.SaveFigureButton.FontSize = 10;
+            app.SaveFigureButton.Position = [881 41 140 20];
             app.SaveFigureButton.Text = 'Save Figure';
 
             % Create DropDown
             app.DropDown = uidropdown(app.figure1);
             app.DropDown.Items = {'Raw', 'Cropped', 'Processed', 'Velocity'};
-            app.DropDown.Position = [1257 72 100 22];
+            app.DropDown.FontSize = 10;
+            app.DropDown.Position = [1031 41 100 20];
             app.DropDown.Value = 'Raw';
 
             % Create ImportParametersButton
             app.ImportParametersButton = uibutton(app.figure1, 'push');
             app.ImportParametersButton.ButtonPushedFcn = createCallbackFcn(app, @ImportParametersButtonPushed, true);
-            app.ImportParametersButton.Position = [116 703 131 22];
+            app.ImportParametersButton.FontSize = 10;
+            app.ImportParametersButton.Position = [101 491 140 20];
             app.ImportParametersButton.Text = 'Import Parameters';
 
             % Create BandwidthGHzLabel
             app.BandwidthGHzLabel = uilabel(app.figure1);
             app.BandwidthGHzLabel.HorizontalAlignment = 'right';
-            app.BandwidthGHzLabel.Position = [37 595 96 22];
+            app.BandwidthGHzLabel.FontSize = 10;
+            app.BandwidthGHzLabel.Position = [11 401 120 20];
             app.BandwidthGHzLabel.Text = 'Bandwidth (GHz)';
 
             % Create BandwidthField
             app.BandwidthField = uieditfield(app.figure1, 'numeric');
-            app.BandwidthField.Position = [148 595 100 22];
+            app.BandwidthField.FontSize = 10;
+            app.BandwidthField.Position = [141 401 100 20];
             app.BandwidthField.Value = 8;
+
+            % Create ImportH5DatasetButton
+            app.ImportH5DatasetButton = uibutton(app.figure1, 'push');
+            app.ImportH5DatasetButton.ButtonPushedFcn = createCallbackFcn(app, @ImportH5DatasetButtonPushed, true);
+            app.ImportH5DatasetButton.FontSize = 10;
+            app.ImportH5DatasetButton.Position = [101 581 140 20];
+            app.ImportH5DatasetButton.Text = 'Import H5 Dataset';
 
             % Show the figure after all components are created
             app.figure1.Visible = 'on';
