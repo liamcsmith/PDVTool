@@ -2,7 +2,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
-        figure1                         matlab.ui.Figure
+        PdvAnalysisFigure               matlab.ui.Figure
         RawPlot                         matlab.ui.control.UIAxes
         CropPlot                        matlab.ui.control.UIAxes
         ProcessedPlot                   matlab.ui.control.UIAxes
@@ -58,7 +58,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
         FloatingBaselineToggle          matlab.ui.control.Switch
         FloatingBaselineLabel           matlab.ui.control.Label
         ImportTraceButton               matlab.ui.control.Button
-        SaveFigurefigButton             matlab.ui.control.Button
+        SaveFigureButton                matlab.ui.control.Button
         FigureChoiceDropDown            matlab.ui.control.DropDown
         ImportParametersButton          matlab.ui.control.Button
         BandwidthGHzLabel               matlab.ui.control.Label
@@ -229,7 +229,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             set(axes,'TickLabelInterpreter','none')
             set(axes,'FontName','Helvetica')
             ylabel(axes,'Frequency (GHz)','Interpreter','none','FontName','Helvetica')
-            xlabel(axes,'Time (탎)','Interpreter','none','FontName','Helvetica')
+            xlabel(axes,'Time (us)','Interpreter','none','FontName','Helvetica')
             xlim(axes,[props.start_time props.end_time]*1e6)
             ylim(axes,[props.start_freq props.end_freq]./1e9)
             set(get(axes, 'title'), 'string', title)
@@ -408,7 +408,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             app.ReadyLamp.Color = 'r';
             if isfield(inputargs,'Title')
-                app.figure1.Name = inputargs.Title;
+                app.PdvAnalysisFigure.Name = inputargs.Title;
             end
             
             if isfield(inputargs,'ParentApp')
@@ -481,25 +481,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
             % Removing any current ROI
             ResetROIButtonButtonPushed(app,event)
             
-            % Creating pop-out figure
-            roifig  = figure();
-            roiax   = axes(roifig);
-            plot_freq_spectrogram(app,roiax,app.ProcessedTransform,'Please Draw ROI')
-            
             % Specifying ROI % SHIFT TO IMPOLY
-            [app.ProcessedTransform.roi,app.ProcessedTransform.roi_x,app.ProcessedTransform.roi_y] = roipoly();
-            
-
-            % Closing figure and clearing figure and axis handles
-            close(gcf)
-            clearvars roiax roifig
-            
-            % Jumping back to the UI
-            figure(app.figure1)
-            
-            % Adding ROI to the processed plot
-            hold(app.ProcessedPlot,'on')
-            app.ProcessedTransform.roiplot = plot(app.ProcessedPlot,app.ProcessedTransform.roi_x,app.ProcessedTransform.roi_y,'k');
+            app.ProcessedTransform.roi = drawpolygon(app.ProcessedPlot,'FaceAlpha',0,'Deletable',false);
             
             app.ReadyLamp.Color = 'g';
         end
@@ -509,9 +492,13 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ReadyLamp.Color = 'r';
             drawnow
             
-            if all(isfield(app.ProcessedTransform,{'roiplot,roi,roi_x,roi_y'})) 
-                delete(app.ProcessedTransform.roiplot)
-                app.ProcessedTransform = rmfield(app.ProcessedTransform,{'roiplot,roi,roi_x,roi_y'});
+            if isfield(app.ProcessedTransform,{'roi'})
+                delete(app.ProcessedTransform.roi)
+                app.ProcessedTransform = rmfield(app.ProcessedTransform,{'roi'});
+                if isfield(app.ProcessedTransform,'roiplot')
+                    delete(app.ProcessedTransform.roiplot)
+                    app.ProcessedTransform = rmfield(app.ProcessedTransform,{'roiplot'});
+                end
             end
             
             app.ReadyLamp.Color = 'g';
@@ -529,7 +516,12 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             % Applying the ROI if one has been set
             if isfield(app.ProcessedTransform,'roi')
-                app.VelocityTransform.P = app.VelocityTransform.P .* app.ProcessedTransform.roi;
+                mask = app.ProcessedTransform.roi.createMask;
+                app.ProcessedTransform.roi.Visible = 'off';
+                roipts = app.ProcessedTransform.roi.Position;
+                hold(app.ProcessedPlot,"on")
+                app.ProcessedTransform.roiplot = plot(app.ProcessedPlot,roipts(:,1),roipts(:,2),'Color','k');
+                app.VelocityTransform.P = app.VelocityTransform.P .* mask;
             end
                         
             % Removing any empty timesteps from velocity data
@@ -626,7 +618,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                         DialogBox(app,'Parent app not correctly interfacing.')
                     end
                 else
-                    try ParentAppPullOutputs(app.ParentApp,app.Outputs)
+                    try ParentAppPullOutputs(app.ParentApp,app.Outputs) %#ok<ADMTHDINV> 
                         PdvAnalysisCloseRequest(app)
                     catch
                         DialogBox(app,'Parent app not correctly interfacing.')
@@ -668,6 +660,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 
                 % Setting 'Zero' Velocity Field Value to the mean of sample region.
                 app.ZeroVelocityField.Value = mean(app.Velocity(start_index:end_index,2));
+                OffsetSampleStartTimeFieldValueChanged(app)
+                OffsetSampleEndTimeFieldValueChanged(app)
             catch
                 % Incase user has not extracted velocities
                 ExtractVelocitiesButtonButtonPushed(app,event)
@@ -693,8 +687,6 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 plot_vel_spectrogram(app,app.VelocityPlot)
                 hold(app.VelocityPlot,'on')
                 plot(app.VelocityPlot,app.Velocity(:,1)*1e6,app.Velocity(:,2),"Color",'r','LineWidth',1)
-                OffsetSampleStartTimeFieldValueChanged(app)
-                OffsetSampleEndTimeFieldValueChanged(app)
             catch
                 % Incase user has not identified the offset prior to removing it.
                 IdentifyOffsetButtonPushed(app)
@@ -1005,55 +997,62 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
             
             % Jumping back to the UI
-            figure(app.figure1)
+            figure(app.PdvAnalysisFigure)
             
             app.ReadyLamp.Color = 'g';
         end
 
-        % Button pushed function: SaveFigurefigButton
-        function SaveFigurefigButtonPushed(app, event)
+        % Button pushed function: SaveFigureButton
+        function SaveFigureButtonPushed(app, event)
             app.ReadyLamp.Color = 'r';
             drawnow
             
-            % Creating pop-out figure
-            popoutfig  = figure();
-            popoutax   = axes('Parent',popoutfig,...
-                              'DefaultAxesFontName','Helvetica', ...
-                              'DefaultAxesFontSize',12, ...
-                              'DefaultTextInterpreter','none', ...
-                              'DefaultTextFontUnits','Point', ...
-                              'DefaultTextFontSize', 12);
             switch app.FigureChoiceDropDown.Value
                 case 'Raw'
-                    if isfield(app.RawTransform,{'T','F','P'})
-                        plot_freq_spectrogram(app,popoutax,app.RawTransform,'Raw Spectrogram',app.RawProps)
-                    end
+                    obj = app.RawPlot;
+                    SwapAxesSide = false;
+                    Filename = 'RawPlot';
                 case 'Cropped'
-                    if isfield(app.CropTransform,{'T','F','P'})
-                        plot_freq_spectrogram(app,popoutax,app.CropTransform,'Cropped Spectrogram')
-                    end
+                    obj = app.CropPlot;
+                    SwapAxesSide = true;
+                    Filename = 'CropPlot';
                 case 'Processed'
-                    if isfield(app.ProcessedTransform,{'T','F','P'})
-                        plot_freq_spectrogram(app,popoutax,app.ProcessedTransform,'Processed Spectrogram')
-                        if isfield(app.ProcessedTransform,'roi')
-                            hold(popoutax,'on')
-                            % MISSING Plot ROI
-                        end
-                    end
+                    obj = app.ProcessedPlot;
+                    SwapAxesSide = false;
+                    Filename = 'ProcessedPlot';
                 case 'Velocity'
-                    if isfield(app.VelocityTransform,{'T','F','P'})
-                        plot_vel_spectrogram(app,popoutax)
-                        if ~isempty(app.Velocity)
-                            hold(popoutax,'on')
-                            plot(popoutax,app.Velocity(:,1)*1e6,app.Velocity(:,2),"Color",[0 0.447 0.741])
-                        end
-                    end
+                    obj = app.VelocityPlot;
+                    SwapAxesSide = true;
+                    Filename = 'VelocityPlot';
             end
-            savefig(popoutfig,[app.FigureChoiceDropDown.Value,'_Spectrogram.fig'])
-            close(gcf)
+            
+            [Filename,Pathname] = uiputfile({'*.eps';'*.pdf';'*.tiff'}, ...
+                                            'Select Save Location', ...
+                                            Filename);
             
             % Jumping back to the UI
-            figure(app.figure1)
+            figure(app.PdvAnalysisFigure)
+                                        
+            if SwapAxesSide
+                obj.YAxisLocation = 'left';
+            end
+                                        
+            if ischar(Pathname)
+                if contains(Filename,'.eps')
+                    exportgraphics(obj,fullfile(Pathname,Filename))
+                elseif contains(Filename,'.pdf')
+                    exportgraphics(obj,fullfile(Pathname,Filename),'ContentType',"vector")
+                elseif contains(Filename,'tiff')
+                    exportgraphics(obj,fullfile(Pathname,Filename),'Resolution',300)
+                else
+                    exportgraphics(obj,fullfile(Pathname,Filename))
+                end
+            end
+            
+            if SwapAxesSide
+                obj.YAxisLocation = 'right';
+            end
+            
             
             app.ReadyLamp.Color = 'g';
         end
@@ -1113,12 +1112,12 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
             
             % Jumping back to the UI
-            figure(app.figure1)
+            figure(app.PdvAnalysisFigure)
             
             app.ReadyLamp.Color = 'g';
         end
 
-        % Close request function: figure1
+        % Close request function: PdvAnalysisFigure
         function PdvAnalysisCloseRequest(app, event)
             delete(app)
             
@@ -1131,15 +1130,15 @@ classdef PdvAnalysis < matlab.apps.AppBase
         % Create UIFigure and components
         function createComponents(app)
 
-            % Create figure1 and hide until all components are created
-            app.figure1 = uifigure('Visible', 'off');
-            app.figure1.Position = [5 5 1090 610];
-            app.figure1.Name = 'PDV_TOOL';
-            app.figure1.CloseRequestFcn = createCallbackFcn(app, @PdvAnalysisCloseRequest, true);
-            app.figure1.Scrollable = 'on';
+            % Create PdvAnalysisFigure and hide until all components are created
+            app.PdvAnalysisFigure = uifigure('Visible', 'off');
+            app.PdvAnalysisFigure.Position = [5 5 1090 610];
+            app.PdvAnalysisFigure.Name = 'PDV_TOOL';
+            app.PdvAnalysisFigure.CloseRequestFcn = createCallbackFcn(app, @PdvAnalysisCloseRequest, true);
+            app.PdvAnalysisFigure.Scrollable = 'on';
 
             % Create RawPlot
-            app.RawPlot = uiaxes(app.figure1);
+            app.RawPlot = uiaxes(app.PdvAnalysisFigure);
             title(app.RawPlot, 'Raw Spectrogram')
             xlabel(app.RawPlot, 'Time [us]')
             ylabel(app.RawPlot, 'Frequency [GHz]')
@@ -1153,7 +1152,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.RawPlot.Position = [241 306 295 295];
 
             % Create CropPlot
-            app.CropPlot = uiaxes(app.figure1);
+            app.CropPlot = uiaxes(app.PdvAnalysisFigure);
             title(app.CropPlot, 'Cropped Spectrogram')
             xlabel(app.CropPlot, 'Time [us]')
             ylabel(app.CropPlot, 'Frequency [GHz]')
@@ -1168,7 +1167,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.CropPlot.Position = [536 306 295 295];
 
             % Create ProcessedPlot
-            app.ProcessedPlot = uiaxes(app.figure1);
+            app.ProcessedPlot = uiaxes(app.PdvAnalysisFigure);
             title(app.ProcessedPlot, 'Processed Spectrogram')
             xlabel(app.ProcessedPlot, 'Time [us]')
             ylabel(app.ProcessedPlot, 'Frequency [GHz]')
@@ -1182,7 +1181,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ProcessedPlot.Position = [241 11 295 295];
 
             % Create VelocityPlot
-            app.VelocityPlot = uiaxes(app.figure1);
+            app.VelocityPlot = uiaxes(app.PdvAnalysisFigure);
             title(app.VelocityPlot, 'Velocity Spectrogram')
             xlabel(app.VelocityPlot, 'Time [us]')
             ylabel(app.VelocityPlot, 'Velocity [m/s]')
@@ -1197,49 +1196,49 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.VelocityPlot.Position = [536 11 295 295];
 
             % Create CropSpectrogramButton
-            app.CropSpectrogramButton = uibutton(app.figure1, 'push');
+            app.CropSpectrogramButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.CropSpectrogramButton.ButtonPushedFcn = createCallbackFcn(app, @CropSpectrogramButtonPushed, true);
             app.CropSpectrogramButton.FontSize = 10;
             app.CropSpectrogramButton.Position = [91 131 140 20];
             app.CropSpectrogramButton.Text = 'Crop Spectrogram';
 
             % Create ProcessBaselineButton
-            app.ProcessBaselineButton = uibutton(app.figure1, 'push');
+            app.ProcessBaselineButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ProcessBaselineButton.ButtonPushedFcn = createCallbackFcn(app, @ProcessBaselineButtonPushed, true);
             app.ProcessBaselineButton.FontSize = 10;
             app.ProcessBaselineButton.Position = [841 491 140 20];
             app.ProcessBaselineButton.Text = 'Process';
 
             % Create SetROIButton
-            app.SetROIButton = uibutton(app.figure1, 'push');
+            app.SetROIButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.SetROIButton.ButtonPushedFcn = createCallbackFcn(app, @SetROIButtonButtonPushed, true);
             app.SetROIButton.FontSize = 10;
             app.SetROIButton.Position = [91 71 140 20];
             app.SetROIButton.Text = 'Set ROI';
 
             % Create ConfirmRoiButton
-            app.ConfirmRoiButton = uibutton(app.figure1, 'push');
+            app.ConfirmRoiButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ConfirmRoiButton.ButtonPushedFcn = createCallbackFcn(app, @ConfirmRoiButtonButtonPushed, true);
             app.ConfirmRoiButton.FontSize = 10;
             app.ConfirmRoiButton.Position = [91 11 140 20];
             app.ConfirmRoiButton.Text = 'Confirm ROI';
 
             % Create ShiftSwitchButton
-            app.ShiftSwitchButton = uibutton(app.figure1, 'push');
+            app.ShiftSwitchButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ShiftSwitchButton.ButtonPushedFcn = createCallbackFcn(app, @ShiftSwitchButtonButtonPushed, true);
             app.ShiftSwitchButton.FontSize = 10;
             app.ShiftSwitchButton.Position = [841 311 140 20];
             app.ShiftSwitchButton.Text = 'Upshift/Downshift';
 
             % Create ExtractVelocitiesButton
-            app.ExtractVelocitiesButton = uibutton(app.figure1, 'push');
+            app.ExtractVelocitiesButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ExtractVelocitiesButton.ButtonPushedFcn = createCallbackFcn(app, @ExtractVelocitiesButtonButtonPushed, true);
             app.ExtractVelocitiesButton.FontSize = 10;
             app.ExtractVelocitiesButton.Position = [841 281 140 20];
             app.ExtractVelocitiesButton.Text = 'Extract Velocities';
 
             % Create ReturnCloseButton
-            app.ReturnCloseButton = uibutton(app.figure1, 'push');
+            app.ReturnCloseButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ReturnCloseButton.ButtonPushedFcn = createCallbackFcn(app, @ReturnCloseButtonButtonPushed, true);
             app.ReturnCloseButton.FontSize = 10;
             app.ReturnCloseButton.FontWeight = 'bold';
@@ -1247,333 +1246,333 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ReturnCloseButton.Text = 'Return & Close';
 
             % Create ResetROIButton
-            app.ResetROIButton = uibutton(app.figure1, 'push');
+            app.ResetROIButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ResetROIButton.ButtonPushedFcn = createCallbackFcn(app, @ResetROIButtonButtonPushed, true);
             app.ResetROIButton.FontSize = 10;
             app.ResetROIButton.Position = [91 41 140 20];
             app.ResetROIButton.Text = 'Reset ROI';
 
             % Create BaselineCorrectionToggle
-            app.BaselineCorrectionToggle = uiswitch(app.figure1, 'slider');
+            app.BaselineCorrectionToggle = uiswitch(app.PdvAnalysisFigure, 'slider');
             app.BaselineCorrectionToggle.ValueChangedFcn = createCallbackFcn(app, @BaselineCorrectionToggleValueChanged, true);
             app.BaselineCorrectionToggle.FontSize = 10;
             app.BaselineCorrectionToggle.Position = [869 581 45 20];
 
             % Create ReprocessRawButton
-            app.ReprocessRawButton = uibutton(app.figure1, 'push');
+            app.ReprocessRawButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ReprocessRawButton.ButtonPushedFcn = createCallbackFcn(app, @ReprocessRawButtonButtonPushed, true);
             app.ReprocessRawButton.FontSize = 10;
             app.ReprocessRawButton.Position = [91 371 140 20];
             app.ReprocessRawButton.Text = 'Reprocess Raw';
 
             % Create ReadyLampLabel
-            app.ReadyLampLabel = uilabel(app.figure1);
+            app.ReadyLampLabel = uilabel(app.PdvAnalysisFigure);
             app.ReadyLampLabel.HorizontalAlignment = 'right';
             app.ReadyLampLabel.FontSize = 10;
             app.ReadyLampLabel.Position = [1 581 120 20];
             app.ReadyLampLabel.Text = 'Ready';
 
             % Create ReadyLamp
-            app.ReadyLamp = uilamp(app.figure1);
+            app.ReadyLamp = uilamp(app.PdvAnalysisFigure);
             app.ReadyLamp.Position = [211 581 20 20];
 
             % Create RecalculateVelocitiesButton
-            app.RecalculateVelocitiesButton = uibutton(app.figure1, 'push');
+            app.RecalculateVelocitiesButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.RecalculateVelocitiesButton.ButtonPushedFcn = createCallbackFcn(app, @RecalculateVelocitiesButtonPushed, true);
             app.RecalculateVelocitiesButton.FontSize = 10;
             app.RecalculateVelocitiesButton.Position = [841 341 140 20];
             app.RecalculateVelocitiesButton.Text = 'Recalculate Velocities';
 
             % Create IdentifyOffsetButton
-            app.IdentifyOffsetButton = uibutton(app.figure1, 'push');
+            app.IdentifyOffsetButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.IdentifyOffsetButton.ButtonPushedFcn = createCallbackFcn(app, @IdentifyOffsetButtonPushed, true);
             app.IdentifyOffsetButton.FontSize = 10;
             app.IdentifyOffsetButton.Position = [841 191 140 20];
             app.IdentifyOffsetButton.Text = 'Identify Offset';
 
             % Create RemoveOffsetButton
-            app.RemoveOffsetButton = uibutton(app.figure1, 'push');
+            app.RemoveOffsetButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.RemoveOffsetButton.ButtonPushedFcn = createCallbackFcn(app, @RemoveOffsetButtonPushed, true);
             app.RemoveOffsetButton.FontSize = 10;
             app.RemoveOffsetButton.Position = [841 131 140 20];
             app.RemoveOffsetButton.Text = 'Remove Offset';
 
             % Create RawNfftPtsEditFieldLabel
-            app.RawNfftPtsEditFieldLabel = uilabel(app.figure1);
+            app.RawNfftPtsEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.RawNfftPtsEditFieldLabel.HorizontalAlignment = 'right';
             app.RawNfftPtsEditFieldLabel.FontSize = 10;
             app.RawNfftPtsEditFieldLabel.Position = [1 461 120 20];
             app.RawNfftPtsEditFieldLabel.Text = 'Raw Nfft (Pts)';
 
             % Create RawNfftField
-            app.RawNfftField = uieditfield(app.figure1, 'numeric');
+            app.RawNfftField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.RawNfftField.FontSize = 10;
             app.RawNfftField.Position = [131 461 100 20];
             app.RawNfftField.Value = 512;
 
             % Create RawWindowSizePtsEditFieldLabel
-            app.RawWindowSizePtsEditFieldLabel = uilabel(app.figure1);
+            app.RawWindowSizePtsEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.RawWindowSizePtsEditFieldLabel.HorizontalAlignment = 'right';
             app.RawWindowSizePtsEditFieldLabel.FontSize = 10;
             app.RawWindowSizePtsEditFieldLabel.Position = [1 431 120 20];
             app.RawWindowSizePtsEditFieldLabel.Text = 'Raw Window Size (Pts)';
 
             % Create RawWindowSizeField
-            app.RawWindowSizeField = uieditfield(app.figure1, 'numeric');
+            app.RawWindowSizeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.RawWindowSizeField.FontSize = 10;
             app.RawWindowSizeField.Position = [131 431 100 20];
             app.RawWindowSizeField.Value = 8192;
 
             % Create StartTimesEditFieldLabel_2
-            app.StartTimesEditFieldLabel_2 = uilabel(app.figure1);
+            app.StartTimesEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.StartTimesEditFieldLabel_2.HorizontalAlignment = 'right';
             app.StartTimesEditFieldLabel_2.FontSize = 10;
             app.StartTimesEditFieldLabel_2.Position = [1 341 120 20];
             app.StartTimesEditFieldLabel_2.Text = 'Start Time (탎)';
 
             % Create StartTimeField
-            app.StartTimeField = uieditfield(app.figure1, 'numeric');
+            app.StartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.StartTimeField.ValueChangedFcn = createCallbackFcn(app, @StartTimeFieldValueChanged, true);
             app.StartTimeField.FontSize = 10;
             app.StartTimeField.Position = [131 341 100 20];
 
             % Create EndTimesEditFieldLabel_2
-            app.EndTimesEditFieldLabel_2 = uilabel(app.figure1);
+            app.EndTimesEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.EndTimesEditFieldLabel_2.HorizontalAlignment = 'right';
             app.EndTimesEditFieldLabel_2.FontSize = 10;
             app.EndTimesEditFieldLabel_2.Position = [1 311 120 20];
             app.EndTimesEditFieldLabel_2.Text = 'End Time (탎)';
 
             % Create EndTimeField
-            app.EndTimeField = uieditfield(app.figure1, 'numeric');
+            app.EndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.EndTimeField.ValueChangedFcn = createCallbackFcn(app, @EndTimeFieldValueChanged, true);
             app.EndTimeField.FontSize = 10;
             app.EndTimeField.Position = [131 311 100 20];
 
             % Create MinFrequencyGHzEditFieldLabel_2
-            app.MinFrequencyGHzEditFieldLabel_2 = uilabel(app.figure1);
+            app.MinFrequencyGHzEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.MinFrequencyGHzEditFieldLabel_2.HorizontalAlignment = 'right';
             app.MinFrequencyGHzEditFieldLabel_2.FontSize = 10;
             app.MinFrequencyGHzEditFieldLabel_2.Position = [1 281 120 20];
             app.MinFrequencyGHzEditFieldLabel_2.Text = 'Min Frequency (GHz)';
 
             % Create MinFrequencyField
-            app.MinFrequencyField = uieditfield(app.figure1, 'numeric');
+            app.MinFrequencyField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.MinFrequencyField.ValueChangedFcn = createCallbackFcn(app, @MinFrequencyFieldValueChanged, true);
             app.MinFrequencyField.FontSize = 10;
             app.MinFrequencyField.Position = [131 281 100 20];
 
             % Create MaxFrequencyGHzEditFieldLabel
-            app.MaxFrequencyGHzEditFieldLabel = uilabel(app.figure1);
+            app.MaxFrequencyGHzEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.MaxFrequencyGHzEditFieldLabel.HorizontalAlignment = 'right';
             app.MaxFrequencyGHzEditFieldLabel.FontSize = 10;
             app.MaxFrequencyGHzEditFieldLabel.Position = [1 251 120 20];
             app.MaxFrequencyGHzEditFieldLabel.Text = 'Max Frequency (GHz)';
 
             % Create MaxFrequencyField
-            app.MaxFrequencyField = uieditfield(app.figure1, 'numeric');
+            app.MaxFrequencyField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.MaxFrequencyField.ValueChangedFcn = createCallbackFcn(app, @MaxFrequencyFieldValueChanged, true);
             app.MaxFrequencyField.FontSize = 10;
             app.MaxFrequencyField.Position = [131 251 100 20];
 
             % Create CropNfftPtsEditFieldLabel_2
-            app.CropNfftPtsEditFieldLabel_2 = uilabel(app.figure1);
+            app.CropNfftPtsEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.CropNfftPtsEditFieldLabel_2.HorizontalAlignment = 'right';
             app.CropNfftPtsEditFieldLabel_2.FontSize = 10;
             app.CropNfftPtsEditFieldLabel_2.Position = [1 221 120 20];
             app.CropNfftPtsEditFieldLabel_2.Text = 'Crop Nfft (Pts)';
 
             % Create CropNfftField
-            app.CropNfftField = uieditfield(app.figure1, 'numeric');
+            app.CropNfftField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.CropNfftField.FontSize = 10;
             app.CropNfftField.Position = [131 221 100 20];
             app.CropNfftField.Value = 1024;
 
             % Create CropWindowSizePtsEditFieldLabel
-            app.CropWindowSizePtsEditFieldLabel = uilabel(app.figure1);
+            app.CropWindowSizePtsEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.CropWindowSizePtsEditFieldLabel.HorizontalAlignment = 'right';
             app.CropWindowSizePtsEditFieldLabel.FontSize = 10;
             app.CropWindowSizePtsEditFieldLabel.Position = [1 191 120 20];
             app.CropWindowSizePtsEditFieldLabel.Text = 'Crop Window Size (Pts)';
 
             % Create CropWindowSizeField
-            app.CropWindowSizeField = uieditfield(app.figure1, 'numeric');
+            app.CropWindowSizeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.CropWindowSizeField.FontSize = 10;
             app.CropWindowSizeField.Position = [131 191 100 20];
             app.CropWindowSizeField.Value = 512;
 
             % Create CropOverlapPtsLabel
-            app.CropOverlapPtsLabel = uilabel(app.figure1);
+            app.CropOverlapPtsLabel = uilabel(app.PdvAnalysisFigure);
             app.CropOverlapPtsLabel.HorizontalAlignment = 'right';
             app.CropOverlapPtsLabel.FontSize = 10;
             app.CropOverlapPtsLabel.Position = [1 161 120 20];
             app.CropOverlapPtsLabel.Text = 'Crop Overlap (Pts)';
 
             % Create CropOverlapField
-            app.CropOverlapField = uieditfield(app.figure1, 'numeric');
+            app.CropOverlapField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.CropOverlapField.FontSize = 10;
             app.CropOverlapField.Position = [131 161 100 20];
 
             % Create BreakoutStartTimesEditFieldLabel
-            app.BreakoutStartTimesEditFieldLabel = uilabel(app.figure1);
+            app.BreakoutStartTimesEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.BreakoutStartTimesEditFieldLabel.FontSize = 10;
             app.BreakoutStartTimesEditFieldLabel.Position = [951 551 140 20];
             app.BreakoutStartTimesEditFieldLabel.Text = 'Breakout Start Time (탎)';
 
             % Create BreakoutStartTimeField
-            app.BreakoutStartTimeField = uieditfield(app.figure1, 'numeric');
+            app.BreakoutStartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.BreakoutStartTimeField.ValueChangedFcn = createCallbackFcn(app, @BreakoutStartTimeFieldValueChanged, true);
             app.BreakoutStartTimeField.FontSize = 10;
             app.BreakoutStartTimeField.Position = [841 551 100 20];
 
             % Create BreakoutEndTimesEditFieldLabel
-            app.BreakoutEndTimesEditFieldLabel = uilabel(app.figure1);
+            app.BreakoutEndTimesEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.BreakoutEndTimesEditFieldLabel.FontSize = 10;
             app.BreakoutEndTimesEditFieldLabel.Position = [951 521 140 20];
             app.BreakoutEndTimesEditFieldLabel.Text = 'Breakout End Time (탎)';
 
             % Create BreakoutEndTimeField
-            app.BreakoutEndTimeField = uieditfield(app.figure1, 'numeric');
+            app.BreakoutEndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.BreakoutEndTimeField.ValueChangedFcn = createCallbackFcn(app, @BreakoutEndTimeFieldValueChanged, true);
             app.BreakoutEndTimeField.FontSize = 10;
             app.BreakoutEndTimeField.Position = [841 521 100 20];
 
             % Create BaselineFrequencyGhzEditFieldLabel
-            app.BaselineFrequencyGhzEditFieldLabel = uilabel(app.figure1);
+            app.BaselineFrequencyGhzEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.BaselineFrequencyGhzEditFieldLabel.FontSize = 10;
             app.BaselineFrequencyGhzEditFieldLabel.Position = [951 461 140 20];
             app.BaselineFrequencyGhzEditFieldLabel.Text = 'Baseline Frequency (Ghz)';
 
             % Create BaselineFrequencyField
-            app.BaselineFrequencyField = uieditfield(app.figure1, 'numeric');
+            app.BaselineFrequencyField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.BaselineFrequencyField.FontSize = 10;
             app.BaselineFrequencyField.Position = [841 461 100 20];
 
             % Create RemoveBaselineLabel
-            app.RemoveBaselineLabel = uilabel(app.figure1);
+            app.RemoveBaselineLabel = uilabel(app.PdvAnalysisFigure);
             app.RemoveBaselineLabel.FontSize = 10;
             app.RemoveBaselineLabel.Position = [951 581 140 20];
             app.RemoveBaselineLabel.Text = ' Remove Baseline?';
 
             % Create ProbeLaserWavelengthnmLabel
-            app.ProbeLaserWavelengthnmLabel = uilabel(app.figure1);
+            app.ProbeLaserWavelengthnmLabel = uilabel(app.PdvAnalysisFigure);
             app.ProbeLaserWavelengthnmLabel.FontSize = 10;
             app.ProbeLaserWavelengthnmLabel.Position = [951 371 140 20];
             app.ProbeLaserWavelengthnmLabel.Text = 'Probe Laser Wavelength (nm)';
 
             % Create WavelengthField
-            app.WavelengthField = uieditfield(app.figure1, 'numeric');
+            app.WavelengthField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.WavelengthField.Position = [841 371 100 20];
             app.WavelengthField.Value = 1550;
 
             % Create OffsetSampleStartTimesLabel
-            app.OffsetSampleStartTimesLabel = uilabel(app.figure1);
+            app.OffsetSampleStartTimesLabel = uilabel(app.PdvAnalysisFigure);
             app.OffsetSampleStartTimesLabel.FontSize = 10;
             app.OffsetSampleStartTimesLabel.Position = [951 250 140 20];
             app.OffsetSampleStartTimesLabel.Text = 'Offset Sample Start Time (탎)';
 
             % Create OffsetSampleStartTimeField
-            app.OffsetSampleStartTimeField = uieditfield(app.figure1, 'numeric');
+            app.OffsetSampleStartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.OffsetSampleStartTimeField.ValueChangedFcn = createCallbackFcn(app, @OffsetSampleStartTimeFieldValueChanged, true);
             app.OffsetSampleStartTimeField.Position = [841 251 100 20];
 
             % Create OffsetSampleEndTimesLabel
-            app.OffsetSampleEndTimesLabel = uilabel(app.figure1);
+            app.OffsetSampleEndTimesLabel = uilabel(app.PdvAnalysisFigure);
             app.OffsetSampleEndTimesLabel.FontSize = 10;
             app.OffsetSampleEndTimesLabel.Position = [951 221 140 20];
             app.OffsetSampleEndTimesLabel.Text = 'Offset Sample End Time (탎)';
 
             % Create OffsetSampleEndTimeField
-            app.OffsetSampleEndTimeField = uieditfield(app.figure1, 'numeric');
+            app.OffsetSampleEndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.OffsetSampleEndTimeField.ValueChangedFcn = createCallbackFcn(app, @OffsetSampleEndTimeFieldValueChanged, true);
             app.OffsetSampleEndTimeField.Position = [841 221 100 20];
 
             % Create ZeroVeloctymsLabel_2
-            app.ZeroVeloctymsLabel_2 = uilabel(app.figure1);
+            app.ZeroVeloctymsLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.ZeroVeloctymsLabel_2.FontSize = 10;
             app.ZeroVeloctymsLabel_2.Position = [951 160 140 20];
             app.ZeroVeloctymsLabel_2.Text = '''Zero'' Velocty (m/s)';
 
             % Create ZeroVelocityField
-            app.ZeroVelocityField = uieditfield(app.figure1, 'numeric');
+            app.ZeroVelocityField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.ZeroVelocityField.Position = [841 161 100 20];
 
             % Create FloatingBaselineToggle
-            app.FloatingBaselineToggle = uiswitch(app.figure1, 'slider');
+            app.FloatingBaselineToggle = uiswitch(app.PdvAnalysisFigure, 'slider');
             app.FloatingBaselineToggle.FontSize = 10;
             app.FloatingBaselineToggle.Position = [870 431 45 20];
             app.FloatingBaselineToggle.Value = 'On';
 
             % Create FloatingBaselineLabel
-            app.FloatingBaselineLabel = uilabel(app.figure1);
+            app.FloatingBaselineLabel = uilabel(app.PdvAnalysisFigure);
             app.FloatingBaselineLabel.FontSize = 10;
             app.FloatingBaselineLabel.Position = [951 431 140 20];
             app.FloatingBaselineLabel.Text = ' Floating Baseline';
 
             % Create ImportTraceButton
-            app.ImportTraceButton = uibutton(app.figure1, 'push');
+            app.ImportTraceButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ImportTraceButton.ButtonPushedFcn = createCallbackFcn(app, @ImportTraceButtonPushed, true);
             app.ImportTraceButton.FontSize = 10;
             app.ImportTraceButton.Position = [91 521 140 20];
             app.ImportTraceButton.Text = 'Import Trace';
 
-            % Create SaveFigurefigButton
-            app.SaveFigurefigButton = uibutton(app.figure1, 'push');
-            app.SaveFigurefigButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFigurefigButtonPushed, true);
-            app.SaveFigurefigButton.FontSize = 10;
-            app.SaveFigurefigButton.Position = [841 39 130 22];
-            app.SaveFigurefigButton.Text = 'Save Figure (.fig)';
+            % Create SaveFigureButton
+            app.SaveFigureButton = uibutton(app.PdvAnalysisFigure, 'push');
+            app.SaveFigureButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFigureButtonPushed, true);
+            app.SaveFigureButton.FontSize = 10;
+            app.SaveFigureButton.Position = [841 39 130 22];
+            app.SaveFigureButton.Text = 'Save Figure';
 
             % Create FigureChoiceDropDown
-            app.FigureChoiceDropDown = uidropdown(app.figure1);
+            app.FigureChoiceDropDown = uidropdown(app.PdvAnalysisFigure);
             app.FigureChoiceDropDown.Items = {'Raw', 'Cropped', 'Processed', 'Velocity'};
             app.FigureChoiceDropDown.FontSize = 10;
             app.FigureChoiceDropDown.Position = [981 41 100 20];
             app.FigureChoiceDropDown.Value = 'Raw';
 
             % Create ImportParametersButton
-            app.ImportParametersButton = uibutton(app.figure1, 'push');
+            app.ImportParametersButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ImportParametersButton.ButtonPushedFcn = createCallbackFcn(app, @ImportParametersButtonPushed, true);
             app.ImportParametersButton.FontSize = 10;
             app.ImportParametersButton.Position = [91 491 140 20];
             app.ImportParametersButton.Text = 'Import Parameters';
 
             % Create BandwidthGHzLabel
-            app.BandwidthGHzLabel = uilabel(app.figure1);
+            app.BandwidthGHzLabel = uilabel(app.PdvAnalysisFigure);
             app.BandwidthGHzLabel.HorizontalAlignment = 'right';
             app.BandwidthGHzLabel.FontSize = 10;
             app.BandwidthGHzLabel.Position = [1 401 120 20];
             app.BandwidthGHzLabel.Text = 'Bandwidth (GHz)';
 
             % Create BandwidthField
-            app.BandwidthField = uieditfield(app.figure1, 'numeric');
+            app.BandwidthField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.BandwidthField.FontSize = 10;
             app.BandwidthField.Position = [131 401 100 20];
             app.BandwidthField.Value = 8;
 
             % Create ImportH5DatasetButton
-            app.ImportH5DatasetButton = uibutton(app.figure1, 'push');
+            app.ImportH5DatasetButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ImportH5DatasetButton.ButtonPushedFcn = createCallbackFcn(app, @ImportH5DatasetButtonPushed, true);
             app.ImportH5DatasetButton.FontSize = 10;
             app.ImportH5DatasetButton.Position = [91 551 140 20];
             app.ImportH5DatasetButton.Text = 'Import H5 Dataset';
 
             % Create SaveFilematButton
-            app.SaveFilematButton = uibutton(app.figure1, 'push');
+            app.SaveFilematButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.SaveFilematButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFilematButtonPushed, true);
             app.SaveFilematButton.FontSize = 10;
             app.SaveFilematButton.Position = [841 9 130 22];
             app.SaveFilematButton.Text = 'Save File (.mat)';
 
             % Create FileSaveDropDown
-            app.FileSaveDropDown = uidropdown(app.figure1);
+            app.FileSaveDropDown = uidropdown(app.PdvAnalysisFigure);
             app.FileSaveDropDown.Items = {'Velocity', 'Parameters'};
             app.FileSaveDropDown.FontSize = 10;
             app.FileSaveDropDown.Position = [981 11 100 20];
             app.FileSaveDropDown.Value = 'Velocity';
 
             % Show the figure after all components are created
-            app.figure1.Visible = 'on';
+            app.PdvAnalysisFigure.Visible = 'on';
         end
     end
 
@@ -1587,7 +1586,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             createComponents(app)
 
             % Register the app with App Designer
-            registerApp(app, app.figure1)
+            registerApp(app, app.PdvAnalysisFigure)
 
             % Execute the startup function
             runStartupFcn(app, @(app)PdvAnalysisStartup(app, varargin{:}))
@@ -1601,7 +1600,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
         function delete(app)
 
             % Delete UIFigure when app is deleted
-            delete(app.figure1)
+            delete(app.PdvAnalysisFigure)
         end
     end
 end
