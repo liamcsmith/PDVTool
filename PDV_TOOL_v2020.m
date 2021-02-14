@@ -1,4 +1,4 @@
-classdef PDV_TOOL < matlab.apps.AppBase
+classdef PDV_TOOL_v2020 < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
