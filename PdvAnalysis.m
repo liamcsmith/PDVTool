@@ -133,19 +133,17 @@ classdef PdvAnalysis < matlab.apps.AppBase
                                                             'FloatingBaseline',app.FloatingBaselineToggle.Value);
             end
             
-            if all(isfield(app.ProcessedTransform,{'roi','roi_x','roi_y'}))
-                Outputs.Parameters.ROI = struct('Mask',app.ProcessedTransform.roi,...
-                                                'XPts',app.ProcessedTransform.roi_x,...
-                                                'YPts',app.ProcessedTransform.roi_y);
+            if all(isfield(app.ProcessedTransform,{'roi','roiplot'}))
+                Outputs.Parameters.ROI = struct('Mask',app.ProcessedTransform.roi.createMask,...
+                                                'Points',app.ProcessedTransform.roi.Position);
             end
             
             Outputs.Parameters.ProbeWavelength        = app.WavelengthField.Value;
             Outputs.Parameters.VelocityScaleInversion = app.VelocityTransform.ScaleInversion;
             
-            if app.ZeroVelocityField.Value ~= 0
-                Outputs.Parameters.VelocityOffset = struct('SampleStartTime',app.OffsetSampleStartTimeField.Value, ...
-                                                           'SampleEndTime',app.OffsetSampleEndTimeField.Value, ...
-                                                           'Value',app.ZeroVelocityField.Value);
+            if app.ZeroVelocityField.Value ~= 0 || (app.OffsetSampleStartTimeField.Value ~=0 && app.OffsetSampleEndTimeField.Value ~= 0)
+                Outputs.Parameters.VelocityOffset = struct('SampleStartTime',app.OffsetSampleStartTimeField.Value * 1e-6, ...
+                                                           'SampleEndTime',app.OffsetSampleEndTimeField.Value * 1e-6);
             end
             
         end
@@ -195,7 +193,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                              'StartPoint',BestGuess);
             Coeffs = coeffvalues(Result);
             Errors = confint(Result);
-            TimeVelocityAndError = [Time,Coeffs(1,2), Errors(2,2)-Errors(2,2)];
+            TimeVelocityAndError = [Time,Coeffs(1,2),Errors(2,2) - Errors(1,2)];
         end
         function transform = compute_spectrogram(app,data,props) %#ok
         
@@ -312,6 +310,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 ExtractVelocitiesButtonButtonPushed(app)
                 if OffsetVelocities
                     PopulateVelocityOffsetFields
+                    IdentifyOffsetButtonPushed(app)
                     RemoveOffsetButtonPushed(app)
                 end
             end
@@ -360,11 +359,10 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 Out = Condition1 && Condition2;
             end
             function InsertRoi
-                app.ProcessedTransform.roi      = Parameters.ROI.Mask;
-                app.ProcessedTransform.roi_x    = Parameters.ROI.XPts;
-                app.ProcessedTransform.roiy     = Parameters.ROI.YPts;
-                hold(app.ProcessedPlot,'on')
-                app.ProcessedTransform.roiplot = plot(app.ProcessedPlot,app.ProcessedTransform.roi_x,app.ProcessedTransform.roi_y,'k');
+                app.ProcessedTransform.roi = drawpolygon(app.ProcessedPlot, ...
+                                                        'Position',Parameters.ROI.Points, ...
+                                                        'FaceAlpha',0,...
+                                                        'Deletable',false);
             end
             function Out = InvertedVelocityScale
                 Out = Parameters.VelocityScaleInversion;
@@ -373,11 +371,10 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 Out = isfield(Parameters,'VelocityOffset');
             end
             function PopulateVelocityOffsetFields
-                app.OffsetSampleStartTimeField.Value = Parameters.VelocityOffset.SampleStartTime;
+                app.OffsetSampleStartTimeField.Value = Parameters.VelocityOffset.SampleStartTime  * 1e6;
                 OffsetSampleStartTimeFieldValueChanged(app)
-                app.OffsetSampleEndTimeField.Value   = Parameters.VelocityOffset.SampleEndTime;
+                app.OffsetSampleEndTimeField.Value   = Parameters.VelocityOffset.SampleEndTime  * 1e6;
                 OffsetSampleEndTimeFieldValueChanged(app)
-                app.ZeroVelocityField.Value = Parameters.VelocityOffset.Value;
             end
         end
     end    
@@ -405,6 +402,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 inputargs.Title     string
                 inputargs.ParentApp
             end
+            opengl HARDWAREBASIC
             
             app.ReadyLamp.Color = 'r';
             if isfield(inputargs,'Title')
@@ -433,7 +431,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 LoadParameters(app,inputargs.Parameters)
             end
             
-            if isfield(inputargs,'Automate') && ~isempty(app.Velocity)
+            if inputargs.Automate && ~isempty(app.Velocity)
                 ReturnCloseButtonButtonPushed(app)
             end
             
@@ -520,7 +518,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 app.ProcessedTransform.roi.Visible = 'off';
                 roipts = app.ProcessedTransform.roi.Position;
                 hold(app.ProcessedPlot,"on")
-                app.ProcessedTransform.roiplot = plot(app.ProcessedPlot,roipts(:,1),roipts(:,2),'Color','k');
+                app.ProcessedTransform.roiplot = plot(app.ProcessedPlot,[roipts(:,1);roipts(1,1)],[roipts(:,2);roipts(1,2)],'Color','k');
                 app.VelocityTransform.P = app.VelocityTransform.P .* mask;
             end
                         
@@ -625,6 +623,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     end
                 end
             end
+            PdvAnalysisCloseRequest(app)
         end
 
         % Button pushed function: RecalculateVelocitiesButton
