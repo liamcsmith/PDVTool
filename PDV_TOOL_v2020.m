@@ -1645,10 +1645,10 @@ classdef PDV_TOOL_v2020 < matlab.apps.AppBase
             
             % Rearranging velocity vector to give actual velocity vector and error vector.
             app.output.errors   = squeeze(app.output.velocity(3,2,:)-app.output.velocity(2,2,:));
-            app.output.velocity = round(squeeze(app.output.velocity(1,2,:)));
+            app.output.velocity = squeeze(app.output.velocity(1,2,:));
             
             % Mapping the velocity and error vectors from pixel space to velocity space.
-            app.output.velocity = app.velocity_transform.velocity_scale(app.output.velocity);
+            app.output.velocity = interp1(1:numel(app.velocity_transform.velocity_scale),app.velocity_transform.velocity_scale,app.output.velocity);
             app.output.errors   = app.output.errors * abs(app.velocity_transform.velocity_scale(2)-app.velocity_transform.velocity_scale(1));
             
             % Plotting the extracted velocity line
@@ -2837,7 +2837,7 @@ classdef PDV_TOOL_v2020 < matlab.apps.AppBase
     methods (Access = public)
 
         % Construct app
-        function app = PDV_TOOL(varargin)
+        function app = PDV_TOOL_v2020(varargin)
 
             % Create UIFigure and components
             createComponents(app)
