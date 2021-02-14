@@ -2,14 +2,11 @@
 A tool for analysing photon doppler velocimetry data with MATLAB.
 Can be run without inputs by simply running the PdvAnalysis.m function or using the following syntax options
 
-% Importing data from within the app
-PdvAnalysis()
+% Importing data from within the app: PdvAnalysis()
 
-% Basic Route of passing inputs
-PdvAnalysis('Time',<TimeArray>,'Voltage',<VoltageArray>)
+% Basic Route of passing inputs: PdvAnalysis('Time',<TimeArray>,'Voltage',<VoltageArray>)
 
-% Passing in ImportScope output cleanly
-PdvAnalysis('Trace',<ImportScopeOutput>)
+% Passing in ImportScope output cleanly: PdvAnalysis('Trace',<ImportScopeOutput>)
 
 % For identifying what trace you're working on.
 PdvAnalysis('Title',<FigureTitle>) 			
