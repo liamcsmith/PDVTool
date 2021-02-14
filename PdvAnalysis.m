@@ -394,7 +394,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
     methods (Access = private)
 
         % Code that executes after component creation
-        function PDV_TOOLOpeningFcn(app, inputargs)
+        function PdvAnalysisStartup(app, inputargs)
             arguments
                 app
                 inputargs.Time      {mustBeNumeric};
@@ -403,11 +403,16 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 inputargs.Parameters
                 inputargs.Automate = false
                 inputargs.Title     string
+                inputargs.ParentApp
             end
             
             app.ReadyLamp.Color = 'r';
             if isfield(inputargs,'Title')
                 app.figure1.Name = inputargs.Title;
+            end
+            
+            if isfield(inputargs,'ParentApp')
+                app.ParentApp = inputargs.ParentApp;
             end
             
             if isfield(inputargs,'Trace')
@@ -612,12 +617,20 @@ classdef PdvAnalysis < matlab.apps.AppBase
         % Button pushed function: ReturnCloseButton
         function ReturnCloseButtonButtonPushed(app, event)
             if isempty(app.ParentApp)
-                assignin("base","PDVToolOutputData",app.Outputs);
+                assignin("base","PdvAnalysisData",app.Outputs);
             else
-                try
-                    ParentAppPullOutputs(app.ParentApp,app.Outputs) %#ok<ADMTHDINV> 
-                catch 
-                    DialogBox(app,'Parent app not correctly interfacing.')
+                if isa(app.ParentApp,'function_handle')
+                    try app.ParentApp(app.Outputs)
+                        PdvAnalysisCloseRequest(app)
+                    catch 
+                        DialogBox(app,'Parent app not correctly interfacing.')
+                    end
+                else
+                    try ParentAppPullOutputs(app.ParentApp,app.Outputs)
+                        PdvAnalysisCloseRequest(app)
+                    catch
+                        DialogBox(app,'Parent app not correctly interfacing.')
+                    end
                 end
             end
         end
@@ -1104,6 +1117,12 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             app.ReadyLamp.Color = 'g';
         end
+
+        % Close request function: figure1
+        function PdvAnalysisCloseRequest(app, event)
+            delete(app)
+            
+        end
     end
 
     % Component initialization
@@ -1116,6 +1135,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.figure1 = uifigure('Visible', 'off');
             app.figure1.Position = [5 5 1090 610];
             app.figure1.Name = 'PDV_TOOL';
+            app.figure1.CloseRequestFcn = createCallbackFcn(app, @PdvAnalysisCloseRequest, true);
             app.figure1.Scrollable = 'on';
 
             % Create RawPlot
@@ -1570,7 +1590,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             registerApp(app, app.figure1)
 
             % Execute the startup function
-            runStartupFcn(app, @(app)PDV_TOOLOpeningFcn(app, varargin{:}))
+            runStartupFcn(app, @(app)PdvAnalysisStartup(app, varargin{:}))
 
             if nargout == 0
                 clear app
