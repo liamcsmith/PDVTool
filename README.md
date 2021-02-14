@@ -4,18 +4,15 @@ Can be run without inputs by simply running the PdvAnalysis.m function or using 
 
 % Importing data from within the app: PdvAnalysis()
 
-% Basic Route of passing inputs: PdvAnalysis('Time',<TimeArray>,'Voltage',<VoltageArray>)
+% Basic Route of passing inputs: PdvAnalysis('Time',obj_1Darray,'Voltage',obj_1Darray)
 
-% Passing in ImportScope output cleanly: PdvAnalysis('Trace',<ImportScopeOutput>)
+% Passing in ImportScope output cleanly: PdvAnalysis('Trace',obj_importscopeoutput)
 
-% For identifying what trace you're working on.
-PdvAnalysis('Title',<FigureTitle>) 			
+% For identifying what trace you're working on: PdvAnalysis('Title',obj_string)
 
-% Variable will created from previous analysis. Can be used to re enter a previous analysis.
-PdvAnalysis('Parameters',<ParametersVariable>)  		
+% Variable will created from previous analysis. Can be used to re enter a previous analysis: PdvAnalysis('Parameters',obj_parametervariable)  		
 							  
-% Fully programmatic analysis of supplied data with supplied parameters.
-PdvAnalysis('Automate',<logical>) 			
+% Fully programmatic analysis of supplied data with supplied parameters: PdvAnalysis('Automate',obj_logical) 			
 							  
 If you want to run this within a function please insert the following nested function inside your function or script then see the included examples or speak to me.
 
