@@ -1,13 +1,13 @@
-function [PdvAnalysisData] = ExampleFunctionInterface(Trace,Prop)
+function [PdvAnalysisData] = ExampleFunctionInterface(Trace,Properties)
     
     ParentFunctionInterfacingHandle = @ParentFunctionPullOutputs;
     ChildApp.Handle = PdvAnalysis('ParentApp',ParentFunctionInterfacingHandle, ...
-                                  'Trace',Trace,"Parameters",Prop);
+                                  'Trace',Trace,"Parameters",Properties);
     waitfor(ChildApp.Handle)
     if isfield(ChildApp,'Outputs')
         PdvAnalysisData = ChildApp.Outputs;
     end
-    cleavars ChildApp
+    clearvars ChildApp
     % Output Data included in the PdvAnalysisData Variable upon
     % close&return
     

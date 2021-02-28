@@ -377,6 +377,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 OffsetSampleEndTimeFieldValueChanged(app)
             end
         end
+                
     end    
     methods (Access = public)
         function ParentAppPullOutputs(app,Outputs)  
@@ -399,15 +400,15 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 inputargs.Trace     
                 inputargs.Parameters
                 inputargs.Automate = false
-                inputargs.Title     string
+                inputargs.Title
                 inputargs.ParentApp
             end
             opengl HARDWAREBASIC
-            
-            app.ReadyLamp.Color = 'r';
             if isfield(inputargs,'Title')
                 app.PdvAnalysisFigure.Name = inputargs.Title;
             end
+            
+            app.ReadyLamp.Color = 'r';
             
             if isfield(inputargs,'ParentApp')
                 app.ParentApp = inputargs.ParentApp;
@@ -435,9 +436,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 ReturnCloseButtonButtonPushed(app)
             end
             
-            
-            app.ReadyLamp.Color = 'g';
-            
+            try app.ReadyLamp.Color = 'g';
+            catch
+            end
         end
 
         % Button pushed function: CropSpectrogramButton
@@ -1131,8 +1132,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
 
             % Create PdvAnalysisFigure and hide until all components are created
             app.PdvAnalysisFigure = uifigure('Visible', 'off');
-            app.PdvAnalysisFigure.Position = [5 5 1090 610];
-            app.PdvAnalysisFigure.Name = 'PDV_TOOL';
+            app.PdvAnalysisFigure.Position = [100 100 1090 610];
+            app.PdvAnalysisFigure.Name = 'PDVAnalysis \L';
             app.PdvAnalysisFigure.CloseRequestFcn = createCallbackFcn(app, @PdvAnalysisCloseRequest, true);
             app.PdvAnalysisFigure.Scrollable = 'on';
 
@@ -1241,7 +1242,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ReturnCloseButton.ButtonPushedFcn = createCallbackFcn(app, @ReturnCloseButtonButtonPushed, true);
             app.ReturnCloseButton.FontSize = 10;
             app.ReturnCloseButton.FontWeight = 'bold';
-            app.ReturnCloseButton.Position = [841 69 240 22];
+            app.ReturnCloseButton.Position = [841 71 240 20];
             app.ReturnCloseButton.Text = 'Return & Close';
 
             % Create ResetROIButton
@@ -1519,7 +1520,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.SaveFigureButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.SaveFigureButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFigureButtonPushed, true);
             app.SaveFigureButton.FontSize = 10;
-            app.SaveFigureButton.Position = [841 39 130 22];
+            app.SaveFigureButton.Position = [841 41 130 20];
             app.SaveFigureButton.Text = 'Save Figure';
 
             % Create FigureChoiceDropDown
@@ -1560,7 +1561,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.SaveFilematButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.SaveFilematButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFilematButtonPushed, true);
             app.SaveFilematButton.FontSize = 10;
-            app.SaveFilematButton.Position = [841 9 130 22];
+            app.SaveFilematButton.Position = [841 11 130 20];
             app.SaveFilematButton.Text = 'Save File (.mat)';
 
             % Create FileSaveDropDown
