@@ -8,14 +8,13 @@ classdef PdvAnalysis < matlab.apps.AppBase
         ProcessedPlot                   matlab.ui.control.UIAxes
         VelocityPlot                    matlab.ui.control.UIAxes
         CropSpectrogramButton           matlab.ui.control.Button
-        ProcessBaselineButton           matlab.ui.control.Button
+        ReduceBaselineButton            matlab.ui.control.Button
         SetROIButton                    matlab.ui.control.Button
         ConfirmRoiButton                matlab.ui.control.Button
         ShiftSwitchButton               matlab.ui.control.Button
         ExtractVelocitiesButton         matlab.ui.control.Button
         ReturnCloseButton               matlab.ui.control.Button
         ResetROIButton                  matlab.ui.control.Button
-        BaselineCorrectionToggle        matlab.ui.control.Switch
         ReprocessRawButton              matlab.ui.control.Button
         ReadyLampLabel                  matlab.ui.control.Label
         ReadyLamp                       matlab.ui.control.Lamp
@@ -41,12 +40,11 @@ classdef PdvAnalysis < matlab.apps.AppBase
         CropOverlapPtsLabel             matlab.ui.control.Label
         CropOverlapField                matlab.ui.control.NumericEditField
         BreakoutStartTimesEditFieldLabel  matlab.ui.control.Label
-        BreakoutStartTimeField          matlab.ui.control.NumericEditField
-        BreakoutEndTimesEditFieldLabel  matlab.ui.control.Label
-        BreakoutEndTimeField            matlab.ui.control.NumericEditField
-        BaselineFrequencyGhzEditFieldLabel  matlab.ui.control.Label
-        BaselineFrequencyField          matlab.ui.control.NumericEditField
-        RemoveBaselineLabel             matlab.ui.control.Label
+        BreakoutStartTime               matlab.ui.control.NumericEditField
+        SampleEndTimesLabel             matlab.ui.control.Label
+        SampleEndTime                   matlab.ui.control.NumericEditField
+        WindowSizesLabel                matlab.ui.control.Label
+        DeltaPhiWindowSize              matlab.ui.control.NumericEditField
         ProbeLaserWavelengthnmLabel     matlab.ui.control.Label
         WavelengthField                 matlab.ui.control.NumericEditField
         OffsetSampleStartTimesLabel     matlab.ui.control.Label
@@ -55,8 +53,6 @@ classdef PdvAnalysis < matlab.apps.AppBase
         OffsetSampleEndTimeField        matlab.ui.control.NumericEditField
         ZeroVeloctymsLabel_2            matlab.ui.control.Label
         ZeroVelocityField               matlab.ui.control.NumericEditField
-        FloatingBaselineToggle          matlab.ui.control.Switch
-        FloatingBaselineLabel           matlab.ui.control.Label
         ImportTraceButton               matlab.ui.control.Button
         SaveFigureButton                matlab.ui.control.Button
         FigureChoiceDropDown            matlab.ui.control.DropDown
@@ -66,6 +62,21 @@ classdef PdvAnalysis < matlab.apps.AppBase
         ImportH5DatasetButton           matlab.ui.control.Button
         SaveFilematButton               matlab.ui.control.Button
         FileSaveDropDown                matlab.ui.control.DropDown
+        CheckDeltaPhiButton             matlab.ui.control.Button
+        ApplyDeltaPhiButton             matlab.ui.control.Button
+        CancelBaselineButton            matlab.ui.control.Button
+        CancelDeltaPhiButton            matlab.ui.control.Button
+        SampleStartTimesLabel           matlab.ui.control.Label
+        SampleStartTime                 matlab.ui.control.NumericEditField
+        Line24                          matlab.ui.control.Label
+        Line45                          matlab.ui.control.Label
+        Line13                          matlab.ui.control.Label
+        Label1                          matlab.ui.control.Label
+        Label2                          matlab.ui.control.Label
+        Label3                          matlab.ui.control.Label
+        Label4                          matlab.ui.control.Label
+        ZeroTimesLabel                  matlab.ui.control.Label
+        ZeroPhiTimeField                matlab.ui.control.NumericEditField
     end
 
     
@@ -78,6 +89,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
         Velocity                = [];
         ChildApp                % Location for storing H5 dbpull app
         ParentApp               % Location for storing parent app
+        Baseline                = struct('BasicRemoval',false,'DeltaPhiCorrection',false)% Description
     end
     
     properties (Access = public)
@@ -103,6 +115,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             TransformProps.start_freq   = app.MinFrequencyField.Value * 1e9;
             TransformProps.end_freq     = app.MaxFrequencyField.Value * 1e9;
+            
+            TransformProps.Baseline     = app.Baseline;
         end
         function RawProps = get.RawProps(app)
             RawProps.start_time     = app.Data.t(1);
@@ -125,13 +139,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             Outputs.Parameters.RawProps        = app.RawProps;
             Outputs.Parameters.TransformProps  = app.TransformProps;
-            
-            Outputs.Parameters.BaselineRemoval = app.BaselineCorrectionToggle.Value;
-            if strcmp(Outputs.Parameters.BaselineRemoval,'On')
-                Outputs.Parameters.BaselineRemoval = struct('BreakoutStartTime',app.BreakoutStartTimeField.Value, ...
-                                                            'BreakoutEndTime',app.BreakoutEndTimeField.Value, ...
-                                                            'FloatingBaseline',app.FloatingBaselineToggle.Value);
-            end
+            Outputs.Parameters.Baseline        = app.Baseline;
             
             if all(isfield(app.ProcessedTransform,{'roi','roiplot'}))
                 Outputs.Parameters.ROI = struct('Mask',app.ProcessedTransform.roi.createMask,...
@@ -163,7 +171,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.MaxFrequencyField.Value     = Props.end_freq   / 1e9;
             
             % Computing the raw transform
-            app.RawTransform = compute_spectrogram(app,app.Data,Props);
+            app.RawTransform = compute_spectrogram(app,Props);
             
             % Plotting the raw transform
             plot_freq_spectrogram(app,app.RawPlot,app.RawTransform,'Rough Spectrogram',Props)
@@ -177,40 +185,29 @@ classdef PdvAnalysis < matlab.apps.AppBase
         function app       = compute_crop_spectrogram(app)
             
             % Computing cropped spectrogram
-            app.CropTransform = compute_spectrogram(app,app.Data,app.TransformProps);
+            app.CropTransform = compute_spectrogram(app,app.TransformProps);
             
             % Plotting cropped spectrogram
             plot_freq_spectrogram(app,app.CropPlot,app.CropTransform,'Cropped Spectrogram')
         end
         
         % Functions relating to the spectrograms
-        function [TimeVelocityAndError,Coeffs] = fit_gaussian(app,Time,signal,BestGuess) %#ok
-            [xData, yData] = prepareCurveData( [], rescale(signal) );
-            [Result,~] = fit(xData,yData,...
-                             'gauss1',...
-                             'Display','off',...
-                             'Lower',[-Inf -Inf 0],...
-                             'StartPoint',BestGuess);
-            Coeffs = coeffvalues(Result);
-            Errors = confint(Result);
-            TimeVelocityAndError = [Time,Coeffs(1,2),Errors(2,2) - Errors(1,2)];
-        end
-        function transform = compute_spectrogram(app,data,props) %#ok
+        function transform = compute_spectrogram(app,props)
         
-        [~, transform.F, transform.T, transform.P] = spectrogram(data.v(props.start_index:props.end_index),...
+        [~, transform.F, transform.T, transform.P] = spectrogram(app.Data.v(props.start_index:props.end_index),...
                                                                  props.window_size,...
                                                                  props.overlap,...
                                                                  linspace(props.start_freq,props.end_freq,props.nfft),...
-                                                                 data.fs,...
+                                                                 1/abs(app.Data.t(2)-app.Data.t(1)),...
                                                                  'yaxis');
         end
-        function transform = compute_spectrogram_baseline_removed(app,data,props) %#ok
+        function transform = compute_spectrogram_baseline_removed(app,props)
         
-        [~, transform.F, transform.T, transform.P] = spectrogram(data.v_baseline_removed(props.start_index:props.end_index),...
+        [~, transform.F, transform.T, transform.P] = spectrogram(app.Data.v_baseline_removed(props.start_index:props.end_index),...
                                                                  props.window_size,...
                                                                  props.overlap,...
                                                                  linspace(props.start_freq,props.end_freq,props.nfft),...
-                                                                 data.fs,...
+                                                                 1/abs(app.Data.t(2)-app.Data.t(1)),...
                                                                  'yaxis');
         end
         function             plot_freq_spectrogram(app,axes,transform,title,props)
@@ -255,7 +252,30 @@ classdef PdvAnalysis < matlab.apps.AppBase
             set(get(axes, 'title'), 'Interpreter', 'none')
             set(axes,'Layer','top')
         end
-    
+        function Shift = FindDeltaPhi(app,Amplitude,Frequency,Phase,Idx)
+                Shift = fminsearch(@(PS)ComputePhaseShift(app,...
+                                                       Amplitude,...
+                                                       Frequency,...
+                                                       PS,...
+                                                       Idx),...
+                                   Phase,...
+                                   optimset('MaxFunEvals',10000,'MaxIter',10000));
+                while Shift<0 || Shift>2*pi
+                    if Shift<0
+                        Shift = Shift + 2*pi;
+                    else
+                        Shift = Shift - 2*pi;
+                    end
+                end
+                
+                Shift = Shift-Phase;
+                function power = ComputePhaseShift(app,A,w,PS,Idx)
+                    signal = (app.Data.v(Idx)) - (A*cos(w*app.Data.t(Idx)+PS));
+                    power = bandpower(signal,...
+                                      1/abs(app.Data.t(2)-app.Data.t(1)),...
+                                      [(w/(2*pi))-5e6 (w/(2*pi))+5e6]);
+                end
+        end
         function LoadParameters(app,Parameters)
             % Raw Data
             PopulateRawFields
@@ -276,16 +296,26 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
             
             % Baseline Removal
-            if BaselineRemovalSpecified
-                PopulateBaselineFields
+            if BaselineReductionSpecified
+                PopulateBaselineReudctionFields
                 if ComputedCrop
-                    ProcessBaselineButtonPushed(app)
+                    ReduceBaselineButtonPushed(app)
                     ComputedProc = true;
                 else
                     ComputedProc = false;
                 end
             else
                 ComputedProc = ComputedCrop;
+            end
+            
+            if DeltaPhiCorrectionSpecified
+                PopulateDeltaPhiFields
+                if ComputedCrop
+                    ApplyDeltaPhiButtonPushed(app)
+                    ComputedProc = true;
+                else
+                    ComputedProc = false;
+                end
             end
             
             % Region of interest
@@ -322,7 +352,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 app.WavelengthField.Value       = Parameters.ProbeWavelength;
             end
             function Out = DataExists
-                Out = all(isfield(app.Data,{'t','v','fs'}));
+                Out = all(isfield(app.Data,{'t','v'}));
             end
             function PopulateCropFields
                 app.CropNfftField.Value       = Parameters.TransformProps.nfft;
@@ -338,16 +368,25 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 app.MaxFrequencyField.Value = Parameters.TransformProps.end_freq     / 1e9;
                 MaxFrequencyFieldValueChanged(app)
             end
-            function Out = BaselineRemovalSpecified
-                Out = isstruct(Parameters.BaselineRemoval);
+            function Out = BaselineReductionSpecified
+                Out = Parameters.Baseline.BasicRemoval;
             end
-            function PopulateBaselineFields
-                app.BaselineCorrectionToggle.Value = 'On';
-                app.BreakoutStartTimeField.Value   = Parameters.BaselineRemoval.BreakoutStartTime;
-                BreakoutStartTimeFieldValueChanged(app)
-                app.BreakoutEndTimeField.Value     = Parameters.BaselineRemoval.BreakoutEndTime;
-                BreakoutEndTimeFieldValueChanged(app)
-                app.FloatingBaselineToggle.Value   = Parameters.BaselineRemoval.FloatingBaseline;
+            function PopulateBaselineReudctionFields
+                app.BreakoutStartTime.Value   = Parameters.Baseline.BreakoutStartTime;
+                BreakoutStartTimeValueChanged(app)
+                app.SampleStartTime.Value   = Parameters.Baseline.SampleStartTime;
+                SampleStartTimeValueChanged(app)
+                app.SampleEndTime.Value     = Parameters.Baseline.SampleEndTime;
+                SampleEndTimeValueChanged(app)
+                app.ZeroPhiTimeField.Value  = Parameters.Baseline.ZeroPhiTime;
+                ZeroPhiTimeFieldValueChanged(app)
+            end
+            function Out = DeltaPhiCorrectionSpecified
+                Out = Parameters.Baseline.DeltaPhiCorrection;
+            end
+            function PopulateDeltaPhiFields
+                app.DeltaPhiWindowSize.Value   = Parameters.Baseline.DeltaPhiWindowSize;
+                DeltaPhiWindowSizeValueChanged(app)
             end
             function Out = ValidRoiSpecified
                 Condition1 = isfield(Parameters,'ROI');
@@ -378,7 +417,33 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
         end
                 
-    end    
+    end
+    methods (Static)
+        function [TimeVelocityAndError,Coeffs] = fit_gaussian(Time,signal,BestGuess)
+            [xData, yData] = prepareCurveData( [], rescale(signal) );
+            [Result,~] = fit(xData,yData,...
+                             'gauss1',...
+                             'Display','off',...
+                             'Lower',[0   -Inf 0],...
+                             'StartPoint',BestGuess);
+            Coeffs = coeffvalues(Result);
+            Errors = confint(Result);
+            TimeVelocityAndError = [Time,Coeffs(1,2),Errors(2,2) - Errors(1,2)];
+        end
+        function PhaseShift = CleanPhase(PhaseShift)
+                for j = 1:numel(PhaseShift)-1
+                    if PhaseShift(j)< PhaseShift(j+1) && PhaseShift(j) + pi < PhaseShift(j+1)
+                        while PhaseShift(j) + pi < PhaseShift(j+1)
+                            PhaseShift(j+1) = PhaseShift(j+1) - (2*pi);
+                        end
+                    elseif PhaseShift(j) > PhaseShift(j+1) && PhaseShift(j) > PhaseShift(j+1) + pi
+                        while PhaseShift(j) > PhaseShift(j+1) + pi
+                            PhaseShift(j+1) = PhaseShift(j+1) + (2*pi);
+                        end
+                    end
+                end
+            end
+    end
     methods (Access = public)
         function ParentAppPullOutputs(app,Outputs)  
             if exist('Outputs') %#ok<EXIST> 
@@ -405,7 +470,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
             opengl HARDWAREBASIC
             if isfield(inputargs,'Title')
-                app.PdvAnalysisFigure.Name = inputargs.Title;
+                app.PdvAnalysisFigure.Name = strcat([inputargs.Title,' ',char([92 76])]);
             end
             
             app.ReadyLamp.Color = 'r';
@@ -417,11 +482,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
             if isfield(inputargs,'Trace')
                 app.Data.t  = inputargs.Trace.time;
                 app.Data.v  = inputargs.Trace.voltage;
-                app.Data.fs = 1/abs(app.Data.t(2)-app.Data.t(1));
             elseif all(isfield(inputargs,{'Time','Voltage'}))
                 app.Data.t  = inputargs.Time;
                 app.Data.v  = inputargs.Voltage;
-                app.Data.fs = 1/abs(app.Data.t(2)-app.Data.t(1));
             end
             
             if all(isfield(app.Data,{'t','v','fs'}))
@@ -434,10 +497,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             if inputargs.Automate && ~isempty(app.Velocity)
                 ReturnCloseButtonButtonPushed(app)
-            end
-            
-            try app.ReadyLamp.Color = 'g';
-            catch
+            else
+                app.ReadyLamp.Color = 'g';
             end
         end
 
@@ -448,14 +509,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             app = compute_crop_spectrogram(app);
             
-            % Copying data across to post baseline removal if baseline toggle set to 'off'
-            if strcmp(app.BaselineCorrectionToggle.Value,'Off')
-                % Copying cropped data to processed data
-                app.ProcessedTransform = app.CropTransform;
-                
-                % Plotting processed spectrogram (has no baseline removal at the moment)
-                plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
-            end
+            app.ProcessedTransform = app.CropTransform;
+            plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
             
             app.ReadyLamp.Color = 'g';
         end
@@ -584,12 +639,15 @@ classdef PdvAnalysis < matlab.apps.AppBase
             [~,init_velocity_guess] = max(app.VelocityTransform.P(:,1)); %this finds the index
             Coeffs = [1 init_velocity_guess 10]; %the peak velocity is scaled down by the max velocity so, amplitude a=1. b is the index. c=10 is the std dev guess.
             
+            VelTransformT = app.VelocityTransform.T;
+            VelTransformP = app.VelocityTransform.P;
+            StartTime     = app.TransformProps.start_time;
+            
             % Fitting all following timesteps iteratively using previous fit as a guide.
             for i = 1:numel(app.VelocityTransform.T)
-                [app.Velocity(i,:),Coeffs] = fit_gaussian(  app,...
-                                                            app.VelocityTransform.T(i) + app.TransformProps.start_time,...
-                                                            app.VelocityTransform.P(:,i),...
-                                                            Coeffs);
+                [app.Velocity(i,:),Coeffs] = app.fit_gaussian(VelTransformT(i) + StartTime,...
+                                                              VelTransformP(:,i),...
+                                                              Coeffs);
             end
             
             % Mapping the velocity and error vectors from pixel space to velocity space.
@@ -696,25 +754,25 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ReadyLamp.Color = 'g';
         end
 
-        % Value changed function: BreakoutEndTimeField
-        function BreakoutEndTimeFieldValueChanged(app, event)
+        % Value changed function: SampleEndTime
+        function SampleEndTimeValueChanged(app, event)
             % Try to delete any existing line
-            if isfield(app.CropTransform,'breakout_end_line')
-                delete(app.CropTransform.breakout_end_line)
-                app.CropTransform = rmfield(app.CropTransform,'breakout_end_line');
+            if isfield(app.CropTransform,'sample_end_line')
+                delete(app.CropTransform.sample_end_line)
+                app.CropTransform = rmfield(app.CropTransform,'sample_end_line');
             end
             
             hold(app.CropPlot,'on')
             
             % Try to plot onto CropPlot
             try
-                app.CropTransform.breakout_end_line = plot(app.CropPlot,([app.BreakoutEndTimeField.Value,app.BreakoutEndTimeField.Value]),([min(app.CropTransform.F) max(app.CropTransform.F)]*1e-9),'Color','k');
+                app.CropTransform.sample_end_line = xline(app.CropPlot,app.SampleEndTime.Value,'Color',app.SampleEndTimesLabel.FontColor);
             catch
             end  
         end
 
-        % Value changed function: BreakoutStartTimeField
-        function BreakoutStartTimeFieldValueChanged(app, event)
+        % Value changed function: BreakoutStartTime
+        function BreakoutStartTimeValueChanged(app, event)
             % Try to delete any existing line
             if isfield(app.CropTransform,'breakout_start_line')
                 delete(app.CropTransform.breakout_start_line)
@@ -725,141 +783,101 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             % Try to plot onto CropPlot
             try
-                app.CropTransform.breakout_start_line = plot(app.CropPlot,([app.BreakoutStartTimeField.Value,app.BreakoutStartTimeField.Value]),([min(app.CropTransform.F) max(app.CropTransform.F)]*1e-9),'Color','k');    
+                app.CropTransform.breakout_start_line = xline(app.CropPlot,app.BreakoutStartTime.Value,'Color',app.BreakoutStartTimesEditFieldLabel.FontColor);    
             catch
             end
         end
 
-        % Button pushed function: ProcessBaselineButton
-        function ProcessBaselineButtonPushed(app, event)
+        % Button pushed function: ReduceBaselineButton
+        function ReduceBaselineButtonPushed(app, event)
             app.ReadyLamp.Color = 'r';
             drawnow
             
-            % If we process the paseline the toggle should be set to 'On'
-            if strcmp(app.BaselineCorrectionToggle.Value,'Off')
-                app.BaselineCorrectionToggle.Value = 'On';
-                drawnow
-            end
-            
-            % Setting the properties to match those of the crop properties
-            TempProps = app.TransformProps;
-            
-            % Changing the end time and index to select only the pre impact (breakout) region.
-            TempProps.end_time        = app.BreakoutStartTimeField.Value * 1e-6;
-            [~, TempProps.end_index]  = min(abs(app.Data.t - TempProps.end_time));
-            TempProps.end_time        = app.Data.t(TempProps.end_index);
-            
-            % Changing the window length to that of the entire length of the signal.
-            TempProps.window_size = TempProps.end_index - TempProps.start_index;
-            
-            % FFT of the entire signal in one window
-            app.ProcessedTransform = compute_spectrogram(app,app.Data,TempProps);
-            
-            % Taking an initial guess at the baseline frequency
-            f0_init_guess = app.ProcessedTransform.F(app.ProcessedTransform.P == max(app.ProcessedTransform.P));
-            f0_init_guess_width = 20e6; % 20 Mhz either side of init f0 guess
-            
-            % Setting up a far narrower frequency range
-            TempProps.start_freq = f0_init_guess - f0_init_guess_width;
-            TempProps.end_freq   = f0_init_guess + f0_init_guess_width;
-            TempProps.nfft       = numel(TempProps.start_freq:10:TempProps.end_freq);
-            
-            % Computing the transform in that narrow range with far greater resolution.
-            app.ProcessedTransform = compute_spectrogram(app,app.Data,TempProps);
-            clearvars f0_init_guess f0_init_guess_width
-            
-            app.Data.f0 = app.ProcessedTransform.F(app.ProcessedTransform.P == max(app.ProcessedTransform.P));
-            clearvars freq_range
-            
-            % Setting Baseline frequency field with correct value
-            app.BaselineFrequencyField.Value = app.Data.f0/1e9;
-            drawnow
-            
-            % Resetting processed transform porperties
-            TempProps = app.TransformProps;
-            
-            % Changing start time to the post breakout line
-            TempProps.start_time          = app.BreakoutEndTimeField.Value / 1e6;
-            [~, TempProps.start_index]    = min(abs(app.Data.t - TempProps.start_time));
-            TempProps.start_time          = app.Data.t(TempProps.start_index);
-            
             try
-                % Try to move the end time to a time the width of the breakout region beyond the start time.
-                TempProps.end_time            = (2*TempProps.start_time) - app.BreakoutStartTimeField.Value/1e6;
-                [~, TempProps.end_index]      = min(abs(app.Data.t - TempProps.end_time));
-                TempProps.end_time            = TempProps.end_index;
-            catch
-                % If this is not possible (ie beyond end of signal) use the crop end time.
-                TempProps.end_time            = app.TransformProps.end_time;
-                TempProps.end_index           = app.TransformProps.end_index;
+                [~,MinIdx] = min(abs(app.Data.t - (app.SampleStartTime.Value/1e6)));
+                [~,MaxIdx] = min(abs(app.Data.t - (app.SampleEndTime.Value  /1e6)));
+                TempProps               = app.TransformProps;
+                [~,TempProps.end_index] = min(abs(app.Data.t - (app.BreakoutStartTime.Value/1e6)));
+                ReadyToStart = true;
+            catch 
+                ReadyToStart = false;
             end
             
-            %Creating functions for minimisation.
-            function power = remove_baseline_float_on(app,A,Props)
-                % Creating terms to match Dolan paper
-                measured = app.Data.v(Props.start_index:Props.end_index);
-                term_1 = A(1)*cos(2*pi*A(3)       *app.Data.t(Props.start_index:Props.end_index));
-                term_2 = A(2)*sin(2*pi*A(3)       *app.Data.t(Props.start_index:Props.end_index));
+            if ReadyToStart
+                % Finding F0 (rough)
+                if app.Data.t(1) < (app.BreakoutStartTime.Value-100)/1e6
+                    [~,TempProps.start_index] = min(abs(app.Data.t - ((app.BreakoutStartTime.Value-100)/1e6)));
+                else
+                    TempProps.start_index     = 1;
+                end
+                TempProps.window_size   = TempProps.end_index - TempProps.start_index;
+                app.ProcessedTransform  = compute_spectrogram(app,TempProps);
+                [~,Idx]                 = max(app.ProcessedTransform.P);
+                tmp                     = app.ProcessedTransform.F(Idx);
                 
-                % Recreating signal
-                signal = measured - term_1 - term_2;
+                % Finding F0 (fine)
+                TempProps.start_freq    = tmp - 20e6;
+                TempProps.end_freq      = tmp + 20e6;
+                TempProps.nfft          = numel(TempProps.start_freq:100:TempProps.end_freq);
+                app.ProcessedTransform  = compute_spectrogram(app,TempProps);
+                [~,Idx]                 = max(app.ProcessedTransform.P);
+                app.Baseline.W          = 2*pi*app.ProcessedTransform.F(Idx);
                 
-                % Measuring power in baseline (50MHz width)
-                power_bas = bandpower(signal,app.Data.fs,[app.Data.f0-2.5e7 app.Data.f0+2.5e7]); 
+                Idx        = MinIdx:MaxIdx;
+                MinFreq    = app.TransformProps.start_freq;
+                MaxFreq    = app.TransformProps.end_freq;
                 
-                % Measuring power in spectrogram region
-                power_tot = bandpower(signal,app.Data.fs,[Props.start_freq Props.end_freq]);
+                % Finding AWP
+                [A,~] = fminsearch(@(A)GetA(app.Data.v(Idx),...
+                                              app.Data.t(Idx),...
+                                              app.Baseline.W,...
+                                              A,...
+                                              MinFreq,...
+                                              MaxFreq),...
+                                   [0,0],...
+                                   optimset('MaxFunEvals',10000,'MaxIter',10000));
+                app.Baseline.A = hypot(A(1),A(2));
                 
-                % Returning the fraction of the power in the spectrogram attributed to the baseline.
-                power = power_bas/power_tot;
+                [~,Idx] = min(abs(app.Data.t - ((app.ZeroPhiTimeField.Value)/1e6)));
+                WindowSize = round(app.TransformProps.window_size/2);
+                app.Baseline.P = FindDeltaPhi(app,app.Baseline.A,app.Baseline.W,0,Idx-WindowSize:Idx+WindowSize);
+                
+                app.Baseline.BasicRemoval       = true;
+                app.Baseline.SampleStartTime    = app.SampleStartTime.Value;
+                app.Baseline.SampleEndTime      = app.SampleEndTime.Value;
+                app.Baseline.BreakoutStartTime  = app.BreakoutStartTime.Value;
+                app.Baseline.ZeroPhiTime        = app.ZeroPhiTimeField.Value;
+                
+                %Output
+                app.Data.v_baseline_removed = app.Data.v - app.Baseline.A*cos((app.Baseline.W*app.Data.t)+app.Baseline.P);
+                app.ProcessedTransform = compute_spectrogram_baseline_removed(app,app.TransformProps);
+                plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
             end
-            function power = remove_baseline_float_off(app,A,Props)
-                    % Creating terms to match Dolan paper
-                    measured    = app.Data.v(Props.start_index:Props.end_index);
-                    term_1      = A(1)*cos(2*pi*app.Data.f0*app.Data.t(Props.start_index:Props.end_index));
-                    term_2      = A(2)*sin(2*pi*app.Data.f0*app.Data.t(Props.start_index:Props.end_index));
-                    
-                    % Recreating signal
-                    signal = measured - term_1 - term_2;
-                    
-                    power = bandpower(signal,app.Data.fs,[app.Data.f0-2.5e7 app.Data.f0+2.5e7]);
-                    power_tot = bandpower(signal,app.Data.fs,[Props.start_freq Props.end_freq]);
-                    power = power/power_tot;
-            end
-            
-            % Minimising with either floating or fixed baseline
-            if strcmp(app.FloatingBaselineToggle.Value,'On') % Floating baseline on
-                % Minimising fractional baseline power to give A(1), A(2) and A(3).
-                [A,~] = fminsearch(@(A)remove_baseline_float_on(app,A,TempProps),[0,0,app.Data.f0],optimset('MaxFunEvals',10000,'MaxIter',10000));
                 
-                % Creating inverse baseline signal
-                baseline_1 = A(1)*cos(2*pi*A(3)*app.Data.t);
-                baseline_2 = A(2)*sin(2*pi*A(3)*app.Data.t);
-            else % Floating baseline off.
-                % Minimising fractional baseline power to give A(1), A(2) and A(3).
-                [A,~] = fminsearch(@(A)remove_baseline_float_off(app,A,TempProps),[0,0],optimset('MaxFunEvals',10000,'MaxIter',10000));
-                
-                % Creating inverse baseline signal
-                baseline_1 = A(1) * cos(2*pi *app.Data.f0*app.Data.t);
-                baseline_2 = A(2) * sin(2*pi *app.Data.f0*app.Data.t);
-            end
-            % Recreating signal with baseline removed
-                app.Data.v_baseline_removed = app.Data.v - baseline_1 - baseline_2;
-            
-            % Computing processed spectrogram
-            app.ProcessedTransform = compute_spectrogram_baseline_removed(app,app.Data,app.TransformProps);
-            
-            % Plotting baseline removed spectrogram
-            plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
-            
+           
+            function power = GetA(V,T,W,A,MinFreq,MaxFreq)
+                        % Recreating signal (terms to match Dolan paper)
+                        signal = V - A(1)*cos(W*T) - A(2)*sin(W*T);
+                        % Finding fractional power
+                        power       = bandpower(signal,...
+                                                1/abs(T(2)-T(1)),...
+                                                [(W/(2*pi))-2.5e7 (W/(2*pi))+2.5e7]);
+                        power_tot   = bandpower(signal,...
+                                                1/abs(T(2)-T(1)),...
+                                                [MinFreq,MaxFreq]);
+                        power       = power/power_tot;
+                end
             app.ReadyLamp.Color = 'g';
         end
 
         % Value changed function: StartTimeField
         function StartTimeFieldValueChanged(app, event)
+%             if isfield(app.Data,'t')
+%                 [~, Idx] = min(abs(app.Data.t - (app.StartTimeField.Value * 1e-6)));
+%                 app.StartTimeField.Value = app.Data.t(Idx) * 1e6;
+%             end
             if isfield(app.Data,'t')
-                [~, Idx] = min(abs(app.Data.t - (app.StartTimeField.Value * 1e-6)));
-                app.StartTimeField.Value = app.Data.t(Idx) * 1e6;
+                app.StartTimeField.Value = app.TransformProps.start_time * (1e6);
             end
             
             if isfield(app.RawTransform,'start_time_line')
@@ -871,16 +889,19 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.start_time_line = plot(app.RawPlot,([app.StartTimeField.Value,app.StartTimeField.Value]),([min(app.RawTransform.F) max(app.RawTransform.F)]*1e-9),'Color','k');
+                app.RawTransform.start_time_line = xline(app.RawPlot,app.StartTimeField.Value,'Color','k');
             catch
             end
         end
 
         % Value changed function: EndTimeField
         function EndTimeFieldValueChanged(app, event)
+%             if isfield(app.Data,'t')
+%                 [~, Idx] = min(abs(app.Data.t - (app.EndTimeField.Value * 1e-6)));
+%                 app.EndTimeField.Value = app.Data.t(Idx) * 1e6;
+%             end
             if isfield(app.Data,'t')
-                [~, Idx] = min(abs(app.Data.t - (app.EndTimeField.Value * 1e-6)));
-                app.EndTimeField.Value = app.Data.t(Idx) * 1e6;
+                app.EndTimeField.Value = app.TransformProps.end_time * (1e6);
             end
             
             if isfield(app.RawTransform,'end_time_line')
@@ -892,7 +913,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.end_time_line = plot(app.RawPlot,([app.EndTimeField.Value,app.EndTimeField.Value]),([min(app.RawTransform.F) max(app.RawTransform.F)]*1e-9),'Color','k');
+                app.RawTransform.end_time_line = xline(app.RawPlot,app.EndTimeField.Value,'Color','k');
             catch
             end
         end
@@ -908,7 +929,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.min_freq_line = plot(app.RawPlot,([min(app.RawTransform.T)+app.RawProps.start_time max(app.RawTransform.T)+app.RawProps.start_time]*1e6),([app.MinFrequencyField.Value,app.MinFrequencyField.Value]),'Color','k');
+                app.RawTransform.min_freq_line = yline(app.RawPlot,app.MinFrequencyField.Value,'Color','k');
             catch
             end
         end
@@ -924,7 +945,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.max_freq_line = plot(app.RawPlot,([min(app.RawTransform.T)+app.RawProps.start_time max(app.RawTransform.T)+app.RawProps.start_time]*1e6),([app.MaxFrequencyField.Value,app.MaxFrequencyField.Value]),'Color','k');
+                app.RawTransform.max_freq_line = yline(app.RawPlot,app.MaxFrequencyField.Value,'Color','k');
             catch
             end
         end
@@ -939,7 +960,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             % Try to plot onto VelocityPlot
             try
                 hold(app.VelocityPlot,'on')
-                app.VelocityTransform.start_time_line = plot(app.VelocityPlot,([app.OffsetSampleStartTimeField.Value,app.OffsetSampleStartTimeField.Value]),([min(app.VelocityTransform.velocity_scale) max(app.VelocityTransform.velocity_scale)]),'Color','k');
+                app.VelocityTransform.start_time_line = xline(app.VelocityPlot,app.OffsetSampleStartTimeField.Value,'Color','k');
             catch
             end
         end
@@ -955,23 +976,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
             
             % Try to plot onto VelocityPlot
             try
-                app.VelocityTransform.end_time_line = plot(app.VelocityPlot,([app.OffsetSampleEndTimeField.Value,app.OffsetSampleEndTimeField.Value]),([min(app.VelocityTransform.velocity_scale) max(app.VelocityTransform.velocity_scale)]),'Color','k');
+                app.VelocityTransform.end_time_line = xline(app.VelocityPlot,app.OffsetSampleEndTimeField.Value,'Color','k');
             catch
             end
-        end
-
-        % Value changed function: BaselineCorrectionToggle
-        function BaselineCorrectionToggleValueChanged(app, event)
-            app.ReadyLamp.Color = 'r';
-            drawnow
-            
-            if strcmp(app.BaselineCorrectionToggle.Value,'Off')
-                app.ProcessedTransform = app.CropTransform;
-                plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
-            end
-            
-            app.ReadyLamp.Color = 'g';
-            drawnow
         end
 
         % Button pushed function: ImportTraceButton
@@ -990,8 +997,6 @@ classdef PdvAnalysis < matlab.apps.AppBase
             if isstruct(waveform) && all(isfield(waveform,{'time','voltage'}))
                 app.Data.t = waveform.time;
                 app.Data.v = waveform.voltage;
-                app.Data.fs = 1/abs(app.Data.t(2) - app.Data.t(1));
-                
                 % Computing the raw spectrogram
                 app = compute_raw_spectrogram(app);
             end
@@ -1082,11 +1087,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     tmp = ImportLecroyArray(tmp{4});
                     app.Data.t = tmp.time;
                     app.Data.v = tmp.voltage;
-                    app.Data.fs = abs(app.Data.t(2) - app.Data.t(1));
                 else
                     app.Data.t = tmp(:,1);
                     app.Data.v = tmp(:,2);
-                    app.Data.fs = abs(app.Data.t(2) - app.Data.t(1));
                 end
                 
                 ReprocessRawButtonButtonPushed(app)
@@ -1122,6 +1125,221 @@ classdef PdvAnalysis < matlab.apps.AppBase
             delete(app)
             
         end
+
+        % Button pushed function: CheckDeltaPhiButton
+        function CheckDeltaPhiButtonPushed(app, event)
+            app.ReadyLamp.Color = 'r';
+            drawnow
+            
+            AWPExist            = all(isfield(app.Baseline,{'A','W','P'}));
+            NonZeroWindow       = (app.DeltaPhiWindowSize.Value>0);
+            try
+                [~,MinIdx] = min(abs(app.Data.t - ((app.ZeroPhiTimeField.Value)/1e6)));
+                SampleRegionExist   = true;
+            catch
+                SampleRegionExist   = false;
+            end
+            
+            if AWPExist && NonZeroWindow && SampleRegionExist && app.Baseline.BasicRemoval
+            
+                A = app.Baseline.A;
+                W = app.Baseline.W;
+                P = app.Baseline.P;
+                
+                % Checking Phase Window Size
+                [~,MaxIdx]  = min(abs(app.Data.t - ((app.Data.t(MinIdx)) + (app.DeltaPhiWindowSize.Value/1e6))));
+                WindowSize  = MaxIdx - MinIdx;
+                
+                Steps               = round(linspace(MinIdx,MaxIdx,100)');
+                DeltaPhi            = nan(numel(Steps)-1,1);
+                
+                for i = 1:numel(DeltaPhi)
+                    DeltaPhi(i)     = FindDeltaPhi(app,A,W,P,Steps(i):Steps(i+1));
+                end
+                Steps       = round(movmean(Steps,2,'Endpoints','discard'));
+                DeltaPhi    = app.CleanPhase(DeltaPhi);
+                DeltaPhiFit = fit(Steps,DeltaPhi,'poly1');
+                
+                PredDeltaPhi        = abs(DeltaPhiFit(MaxIdx) - DeltaPhiFit(MinIdx));
+                if PredDeltaPhi > (pi/2) || PredDeltaPhi < (pi/8)
+                    Fs = abs(app.Data.t(2)-app.Data.t(1))*(1e6);
+                    PlotTitle = ['ÿÿ Across Window (Recommended Size: ',num2str(Fs*round(WindowSize * ((pi/4)/PredDeltaPhi))),' µs)'];
+                else
+                    PlotTitle = 'ÿÿ Across Window (Window Size OK)';
+                end
+                
+                WindowSizeFig = figure(1);
+                clf(WindowSizeFig)
+                WindowSizeAx  = axes(WindowSizeFig);
+                hold(WindowSizeAx,'on')
+                
+                title(WindowSizeAx,PlotTitle)
+                xlabel(WindowSizeAx,'Time [µs]')
+                ylabel(WindowSizeAx,'ÿÿ [Rad.]')
+                
+                plot(WindowSizeAx,...
+                     app.Data.t(Steps)*(1e6),...
+                     DeltaPhi,'bo')
+                plot(WindowSizeAx,...
+                     app.Data.t(Steps)*(1e6),...
+                     DeltaPhiFit(Steps))
+            end
+            
+            app.ReadyLamp.Color = 'g';
+        end
+
+        % Button pushed function: ApplyDeltaPhiButton
+        function ApplyDeltaPhiButtonPushed(app, event)
+            app.ReadyLamp.Color = 'r';
+            drawnow
+            
+            AWPExist            = all(isfield(app.Baseline,{'A','W','P'}));
+            NonZeroWindow       = (app.DeltaPhiWindowSize.Value>0);
+            try
+                [~,T0] = min(abs(app.Data.t - (app.ZeroPhiTimeField.Value/1e6)));
+                SampleRegionExist   = true;
+            catch
+                SampleRegionExist   = false;
+            end
+            
+            if AWPExist && NonZeroWindow && SampleRegionExist && app.Baseline.BasicRemoval
+                A           = app.Baseline.A;
+                W           = app.Baseline.W;
+                P           = app.Baseline.P;
+                [~,tmp]     = min(abs(app.Data.t - (app.Data.t(T0) + (app.DeltaPhiWindowSize.Value/1e6))));
+                WindowSize  = tmp - T0;
+                
+                StepsAfter = ceil((app.TransformProps.end_index - T0)/WindowSize);
+                
+                Steps    = T0:WindowSize:(T0+(StepsAfter*WindowSize));
+                DeltaPhi = nan(numel(Steps),1);
+                
+                Idx = -(round(WindowSize/2)):(round(WindowSize/2));
+                for i = 1:numel(Steps)
+                    DeltaPhi(i)    = FindDeltaPhi(app,A,W,P,Steps(i)+Idx);
+                end
+                DeltaPhi      = app.CleanPhase(DeltaPhi);
+                DeltaPhiInterp = interp1(app.Data.t(Steps),...
+                                         DeltaPhi,...
+                                         app.Data.t,...
+                                         'linear');
+                
+                [~,MinIdx] = min(abs(DeltaPhi));
+                MaxIdx = find(abs(DeltaPhi-DeltaPhi(MinIdx))>(pi/2),1);
+                Idx = Steps(MinIdx:MaxIdx);
+                
+                tmpT   = app.Data.t(Idx);
+                tmpPhi = DeltaPhi(MinIdx:MaxIdx);
+                [tmpT,tmpPhi] = prepareCurveData(tmpT,tmpPhi);
+                PhiFit = fit(tmpT,tmpPhi,'poly1');
+                DeltaPhiInterp(isnan(DeltaPhiInterp)) = PhiFit(app.Data.t(isnan(DeltaPhiInterp)));
+                DeltaPhi = DeltaPhiInterp;
+                
+                %Output
+                app.Data.v_baseline_removed = app.Data.v - A*cos((W*app.Data.t)+P+DeltaPhi);
+                app.ProcessedTransform = compute_spectrogram_baseline_removed(app,app.TransformProps);
+                plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
+                
+                
+                app.Baseline.DeltaPhiCorrection = true;
+                app.Baseline.DeltaPhiWindowSize = app.DeltaPhiWindowSize.Value;
+            end
+            
+            app.ReadyLamp.Color = 'g';
+        end
+
+        % Value changed function: SampleStartTime
+        function SampleStartTimeValueChanged(app, event)
+            % Try to delete any existing line
+            if isfield(app.CropTransform,'sample_start_line')
+                delete(app.CropTransform.sample_start_line)
+                app.CropTransform = rmfield(app.CropTransform,'sample_start_line');
+            end
+            
+            hold(app.CropPlot,'on')
+            
+            % Try to plot onto CropPlot
+            try
+                app.CropTransform.sample_start_line = xline(app.CropPlot,app.SampleStartTime.Value,'Color',app.SampleEndTimesLabel.FontColor);
+            catch
+            end  
+        end
+
+        % Value changed function: DeltaPhiWindowSize
+        function DeltaPhiWindowSizeValueChanged(app, event)
+            % Try to delete any existing line
+            if isfield(app.ProcessedTransform,'DeltaPhiWindowStartLine')
+                delete(app.ProcessedTransform.DeltaPhiWindowStartLine)
+                delete(app.ProcessedTransform.DeltaPhiWindowEndLine)
+                app.ProcessedTransform = rmfield(app.ProcessedTransform,{'DeltaPhiWindowStartLine','DeltaPhiWindowEndLine'});
+            end
+            
+            if app.DeltaPhiWindowSize.Value > 0
+                hold(app.CropPlot,'on')
+                
+                % Try to plot onto CropPlot
+                try
+                    [~,MiddleIdx] = min(abs(app.Data.t - ((app.ZeroPhiTimeField.Value)/1e6)));
+                    [~,StartIdx]  = min(abs(app.Data.t - ((app.Data.t(MiddleIdx))-0.5*(app.DeltaPhiWindowSize.Value/1e6))));
+                    [~,EndIdx]    = min(abs(app.Data.t - ((app.Data.t(MiddleIdx))+0.5*(app.DeltaPhiWindowSize.Value/1e6))));
+                    StartTime     = app.Data.t(StartIdx)*1e6;
+                    EndTime       = app.Data.t(EndIdx)*1e6;
+                    
+                    app.ProcessedTransform.DeltaPhiWindowStartLine = xline(app.ProcessedPlot,StartTime,'Color','k');
+                    app.ProcessedTransform.DeltaPhiWindowEndLine   = xline(app.ProcessedPlot,EndTime  ,'Color','k');
+                catch
+                end  
+                
+            end
+            
+        end
+
+        % Button pushed function: CancelBaselineButton
+        function CancelBaselineButtonPushed(app, event)
+            app.ReadyLamp.Color = 'r';
+            drawnow
+            
+            if app.Baseline.BasicRemoval
+                app.Baseline = struct('BasicRemoval',false,'DeltaPhiCorrection',false);
+                
+                app.ProcessedTransform = app.CropTransform;
+                plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
+            end
+            app.ReadyLamp.Color = 'g';
+        end
+
+        % Button pushed function: CancelDeltaPhiButton
+        function CancelDeltaPhiButtonPushed(app, event)
+            app.ReadyLamp.Color = 'r';
+            drawnow
+            
+            if app.Baseline.PhaseShiftCorrection
+                app.Baseline                    = rmfield(app.Baseline,'PhaseShiftWindowSize');
+                app.Baseline.DeltaPhiCorrection = false;
+                
+                app.Data.v_baseline_removed = app.Data.v - app.Baseline.A*cos((app.Baseline.W*app.Data.t)+app.Baseline.P);
+                app.ProcessedTransform = compute_spectrogram_baseline_removed(app,app.TransformProps);
+                plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
+            end
+            app.ReadyLamp.Color = 'g';
+        end
+
+        % Value changed function: ZeroPhiTimeField
+        function ZeroPhiTimeFieldValueChanged(app, event)
+            % Try to delete any existing line
+            if isfield(app.CropTransform,'zero_phi_line')
+                delete(app.CropTransform.zero_phi_line)
+                app.CropTransform = rmfield(app.CropTransform,'zero_phi_line');
+            end
+            
+            hold(app.CropPlot,'on')
+            
+            % Try to plot onto CropPlot
+            try
+                app.CropTransform.zero_phi_line = xline(app.CropPlot,app.ZeroPhiTimeField.Value,'Color',app.ZeroTimesLabel.FontColor);
+            catch
+            end
+        end
     end
 
     % Component initialization
@@ -1132,7 +1350,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
 
             % Create PdvAnalysisFigure and hide until all components are created
             app.PdvAnalysisFigure = uifigure('Visible', 'off');
-            app.PdvAnalysisFigure.Position = [100 100 1090 610];
+            app.PdvAnalysisFigure.Position = [0 0 1120 640];
             app.PdvAnalysisFigure.Name = 'PDVAnalysis \L';
             app.PdvAnalysisFigure.CloseRequestFcn = createCallbackFcn(app, @PdvAnalysisCloseRequest, true);
             app.PdvAnalysisFigure.Scrollable = 'on';
@@ -1149,7 +1367,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.RawPlot.BoxStyle = 'full';
             app.RawPlot.LineWidth = 1;
             app.RawPlot.NextPlot = 'replace';
-            app.RawPlot.Position = [241 306 295 295];
+            app.RawPlot.Position = [241 321 310 310];
 
             % Create CropPlot
             app.CropPlot = uiaxes(app.PdvAnalysisFigure);
@@ -1164,7 +1382,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.CropPlot.YAxisLocation = 'right';
             app.CropPlot.LineWidth = 1;
             app.CropPlot.NextPlot = 'replace';
-            app.CropPlot.Position = [536 306 295 295];
+            app.CropPlot.Position = [551 321 310 310];
 
             % Create ProcessedPlot
             app.ProcessedPlot = uiaxes(app.PdvAnalysisFigure);
@@ -1178,7 +1396,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ProcessedPlot.BoxStyle = 'full';
             app.ProcessedPlot.LineWidth = 1;
             app.ProcessedPlot.NextPlot = 'replace';
-            app.ProcessedPlot.Position = [241 11 295 295];
+            app.ProcessedPlot.Position = [241 11 310 310];
 
             % Create VelocityPlot
             app.VelocityPlot = uiaxes(app.PdvAnalysisFigure);
@@ -1193,21 +1411,21 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.VelocityPlot.YAxisLocation = 'right';
             app.VelocityPlot.LineWidth = 1;
             app.VelocityPlot.NextPlot = 'replace';
-            app.VelocityPlot.Position = [536 11 295 295];
+            app.VelocityPlot.Position = [551 11 310 310];
 
             % Create CropSpectrogramButton
             app.CropSpectrogramButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.CropSpectrogramButton.ButtonPushedFcn = createCallbackFcn(app, @CropSpectrogramButtonPushed, true);
             app.CropSpectrogramButton.FontSize = 10;
-            app.CropSpectrogramButton.Position = [91 131 140 20];
+            app.CropSpectrogramButton.Position = [91 161 140 20];
             app.CropSpectrogramButton.Text = 'Crop Spectrogram';
 
-            % Create ProcessBaselineButton
-            app.ProcessBaselineButton = uibutton(app.PdvAnalysisFigure, 'push');
-            app.ProcessBaselineButton.ButtonPushedFcn = createCallbackFcn(app, @ProcessBaselineButtonPushed, true);
-            app.ProcessBaselineButton.FontSize = 10;
-            app.ProcessBaselineButton.Position = [841 491 140 20];
-            app.ProcessBaselineButton.Text = 'Process';
+            % Create ReduceBaselineButton
+            app.ReduceBaselineButton = uibutton(app.PdvAnalysisFigure, 'push');
+            app.ReduceBaselineButton.ButtonPushedFcn = createCallbackFcn(app, @ReduceBaselineButtonPushed, true);
+            app.ReduceBaselineButton.FontSize = 10;
+            app.ReduceBaselineButton.Position = [871 489 120 22];
+            app.ReduceBaselineButton.Text = 'Reduce Baseline';
 
             % Create SetROIButton
             app.SetROIButton = uibutton(app.PdvAnalysisFigure, 'push');
@@ -1227,14 +1445,14 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ShiftSwitchButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ShiftSwitchButton.ButtonPushedFcn = createCallbackFcn(app, @ShiftSwitchButtonButtonPushed, true);
             app.ShiftSwitchButton.FontSize = 10;
-            app.ShiftSwitchButton.Position = [841 311 140 20];
+            app.ShiftSwitchButton.Position = [871 296 140 20];
             app.ShiftSwitchButton.Text = 'Upshift/Downshift';
 
             % Create ExtractVelocitiesButton
             app.ExtractVelocitiesButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ExtractVelocitiesButton.ButtonPushedFcn = createCallbackFcn(app, @ExtractVelocitiesButtonButtonPushed, true);
             app.ExtractVelocitiesButton.FontSize = 10;
-            app.ExtractVelocitiesButton.Position = [841 281 140 20];
+            app.ExtractVelocitiesButton.Position = [871 266 140 20];
             app.ExtractVelocitiesButton.Text = 'Extract Velocities';
 
             % Create ReturnCloseButton
@@ -1242,7 +1460,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ReturnCloseButton.ButtonPushedFcn = createCallbackFcn(app, @ReturnCloseButtonButtonPushed, true);
             app.ReturnCloseButton.FontSize = 10;
             app.ReturnCloseButton.FontWeight = 'bold';
-            app.ReturnCloseButton.Position = [841 71 240 20];
+            app.ReturnCloseButton.Position = [871 71 240 20];
             app.ReturnCloseButton.Text = 'Return & Close';
 
             % Create ResetROIButton
@@ -1252,324 +1470,425 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ResetROIButton.Position = [91 41 140 20];
             app.ResetROIButton.Text = 'Reset ROI';
 
-            % Create BaselineCorrectionToggle
-            app.BaselineCorrectionToggle = uiswitch(app.PdvAnalysisFigure, 'slider');
-            app.BaselineCorrectionToggle.ValueChangedFcn = createCallbackFcn(app, @BaselineCorrectionToggleValueChanged, true);
-            app.BaselineCorrectionToggle.FontSize = 10;
-            app.BaselineCorrectionToggle.Position = [869 581 45 20];
-
             % Create ReprocessRawButton
             app.ReprocessRawButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ReprocessRawButton.ButtonPushedFcn = createCallbackFcn(app, @ReprocessRawButtonButtonPushed, true);
             app.ReprocessRawButton.FontSize = 10;
-            app.ReprocessRawButton.Position = [91 371 140 20];
+            app.ReprocessRawButton.Position = [91 401 140 20];
             app.ReprocessRawButton.Text = 'Reprocess Raw';
 
             % Create ReadyLampLabel
             app.ReadyLampLabel = uilabel(app.PdvAnalysisFigure);
             app.ReadyLampLabel.HorizontalAlignment = 'right';
             app.ReadyLampLabel.FontSize = 10;
-            app.ReadyLampLabel.Position = [1 581 120 20];
+            app.ReadyLampLabel.Position = [1 611 120 20];
             app.ReadyLampLabel.Text = 'Ready';
 
             % Create ReadyLamp
             app.ReadyLamp = uilamp(app.PdvAnalysisFigure);
-            app.ReadyLamp.Position = [211 581 20 20];
+            app.ReadyLamp.Position = [211 611 20 20];
 
             % Create RecalculateVelocitiesButton
             app.RecalculateVelocitiesButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.RecalculateVelocitiesButton.ButtonPushedFcn = createCallbackFcn(app, @RecalculateVelocitiesButtonPushed, true);
             app.RecalculateVelocitiesButton.FontSize = 10;
-            app.RecalculateVelocitiesButton.Position = [841 341 140 20];
+            app.RecalculateVelocitiesButton.Position = [871 326 140 20];
             app.RecalculateVelocitiesButton.Text = 'Recalculate Velocities';
 
             % Create IdentifyOffsetButton
             app.IdentifyOffsetButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.IdentifyOffsetButton.ButtonPushedFcn = createCallbackFcn(app, @IdentifyOffsetButtonPushed, true);
             app.IdentifyOffsetButton.FontSize = 10;
-            app.IdentifyOffsetButton.Position = [841 191 140 20];
+            app.IdentifyOffsetButton.Position = [871 176 140 20];
             app.IdentifyOffsetButton.Text = 'Identify Offset';
 
             % Create RemoveOffsetButton
             app.RemoveOffsetButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.RemoveOffsetButton.ButtonPushedFcn = createCallbackFcn(app, @RemoveOffsetButtonPushed, true);
             app.RemoveOffsetButton.FontSize = 10;
-            app.RemoveOffsetButton.Position = [841 131 140 20];
+            app.RemoveOffsetButton.Position = [871 116 140 20];
             app.RemoveOffsetButton.Text = 'Remove Offset';
 
             % Create RawNfftPtsEditFieldLabel
             app.RawNfftPtsEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.RawNfftPtsEditFieldLabel.HorizontalAlignment = 'right';
             app.RawNfftPtsEditFieldLabel.FontSize = 10;
-            app.RawNfftPtsEditFieldLabel.Position = [1 461 120 20];
+            app.RawNfftPtsEditFieldLabel.Position = [1 491 120 20];
             app.RawNfftPtsEditFieldLabel.Text = 'Raw Nfft (Pts)';
 
             % Create RawNfftField
             app.RawNfftField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.RawNfftField.Limits = [0 Inf];
+            app.RawNfftField.RoundFractionalValues = 'on';
             app.RawNfftField.FontSize = 10;
-            app.RawNfftField.Position = [131 461 100 20];
+            app.RawNfftField.Position = [131 491 100 20];
             app.RawNfftField.Value = 512;
 
             % Create RawWindowSizePtsEditFieldLabel
             app.RawWindowSizePtsEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.RawWindowSizePtsEditFieldLabel.HorizontalAlignment = 'right';
             app.RawWindowSizePtsEditFieldLabel.FontSize = 10;
-            app.RawWindowSizePtsEditFieldLabel.Position = [1 431 120 20];
+            app.RawWindowSizePtsEditFieldLabel.Position = [1 461 120 20];
             app.RawWindowSizePtsEditFieldLabel.Text = 'Raw Window Size (Pts)';
 
             % Create RawWindowSizeField
             app.RawWindowSizeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.RawWindowSizeField.Limits = [0 Inf];
+            app.RawWindowSizeField.RoundFractionalValues = 'on';
             app.RawWindowSizeField.FontSize = 10;
-            app.RawWindowSizeField.Position = [131 431 100 20];
+            app.RawWindowSizeField.Position = [131 461 100 20];
             app.RawWindowSizeField.Value = 8192;
 
             % Create StartTimesEditFieldLabel_2
             app.StartTimesEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.StartTimesEditFieldLabel_2.HorizontalAlignment = 'right';
             app.StartTimesEditFieldLabel_2.FontSize = 10;
-            app.StartTimesEditFieldLabel_2.Position = [1 341 120 20];
+            app.StartTimesEditFieldLabel_2.Position = [1 371 120 20];
             app.StartTimesEditFieldLabel_2.Text = 'Start Time (µs)';
 
             % Create StartTimeField
             app.StartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.StartTimeField.ValueChangedFcn = createCallbackFcn(app, @StartTimeFieldValueChanged, true);
             app.StartTimeField.FontSize = 10;
-            app.StartTimeField.Position = [131 341 100 20];
+            app.StartTimeField.Position = [131 371 100 20];
 
             % Create EndTimesEditFieldLabel_2
             app.EndTimesEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.EndTimesEditFieldLabel_2.HorizontalAlignment = 'right';
             app.EndTimesEditFieldLabel_2.FontSize = 10;
-            app.EndTimesEditFieldLabel_2.Position = [1 311 120 20];
+            app.EndTimesEditFieldLabel_2.Position = [1 341 120 20];
             app.EndTimesEditFieldLabel_2.Text = 'End Time (µs)';
 
             % Create EndTimeField
             app.EndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.EndTimeField.ValueChangedFcn = createCallbackFcn(app, @EndTimeFieldValueChanged, true);
             app.EndTimeField.FontSize = 10;
-            app.EndTimeField.Position = [131 311 100 20];
+            app.EndTimeField.Position = [131 341 100 20];
 
             % Create MinFrequencyGHzEditFieldLabel_2
             app.MinFrequencyGHzEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.MinFrequencyGHzEditFieldLabel_2.HorizontalAlignment = 'right';
             app.MinFrequencyGHzEditFieldLabel_2.FontSize = 10;
-            app.MinFrequencyGHzEditFieldLabel_2.Position = [1 281 120 20];
+            app.MinFrequencyGHzEditFieldLabel_2.Position = [1 311 120 20];
             app.MinFrequencyGHzEditFieldLabel_2.Text = 'Min Frequency (GHz)';
 
             % Create MinFrequencyField
             app.MinFrequencyField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.MinFrequencyField.Limits = [0 Inf];
             app.MinFrequencyField.ValueChangedFcn = createCallbackFcn(app, @MinFrequencyFieldValueChanged, true);
             app.MinFrequencyField.FontSize = 10;
-            app.MinFrequencyField.Position = [131 281 100 20];
+            app.MinFrequencyField.Position = [131 311 100 20];
 
             % Create MaxFrequencyGHzEditFieldLabel
             app.MaxFrequencyGHzEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.MaxFrequencyGHzEditFieldLabel.HorizontalAlignment = 'right';
             app.MaxFrequencyGHzEditFieldLabel.FontSize = 10;
-            app.MaxFrequencyGHzEditFieldLabel.Position = [1 251 120 20];
+            app.MaxFrequencyGHzEditFieldLabel.Position = [1 281 120 20];
             app.MaxFrequencyGHzEditFieldLabel.Text = 'Max Frequency (GHz)';
 
             % Create MaxFrequencyField
             app.MaxFrequencyField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.MaxFrequencyField.Limits = [0 Inf];
             app.MaxFrequencyField.ValueChangedFcn = createCallbackFcn(app, @MaxFrequencyFieldValueChanged, true);
             app.MaxFrequencyField.FontSize = 10;
-            app.MaxFrequencyField.Position = [131 251 100 20];
+            app.MaxFrequencyField.Position = [131 281 100 20];
 
             % Create CropNfftPtsEditFieldLabel_2
             app.CropNfftPtsEditFieldLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.CropNfftPtsEditFieldLabel_2.HorizontalAlignment = 'right';
             app.CropNfftPtsEditFieldLabel_2.FontSize = 10;
-            app.CropNfftPtsEditFieldLabel_2.Position = [1 221 120 20];
+            app.CropNfftPtsEditFieldLabel_2.Position = [1 251 120 20];
             app.CropNfftPtsEditFieldLabel_2.Text = 'Crop Nfft (Pts)';
 
             % Create CropNfftField
             app.CropNfftField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.CropNfftField.Limits = [0 Inf];
+            app.CropNfftField.RoundFractionalValues = 'on';
             app.CropNfftField.FontSize = 10;
-            app.CropNfftField.Position = [131 221 100 20];
+            app.CropNfftField.Position = [131 251 100 20];
             app.CropNfftField.Value = 1024;
 
             % Create CropWindowSizePtsEditFieldLabel
             app.CropWindowSizePtsEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.CropWindowSizePtsEditFieldLabel.HorizontalAlignment = 'right';
             app.CropWindowSizePtsEditFieldLabel.FontSize = 10;
-            app.CropWindowSizePtsEditFieldLabel.Position = [1 191 120 20];
+            app.CropWindowSizePtsEditFieldLabel.Position = [1 221 120 20];
             app.CropWindowSizePtsEditFieldLabel.Text = 'Crop Window Size (Pts)';
 
             % Create CropWindowSizeField
             app.CropWindowSizeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.CropWindowSizeField.Limits = [0 Inf];
+            app.CropWindowSizeField.RoundFractionalValues = 'on';
             app.CropWindowSizeField.FontSize = 10;
-            app.CropWindowSizeField.Position = [131 191 100 20];
+            app.CropWindowSizeField.Position = [131 221 100 20];
             app.CropWindowSizeField.Value = 512;
 
             % Create CropOverlapPtsLabel
             app.CropOverlapPtsLabel = uilabel(app.PdvAnalysisFigure);
             app.CropOverlapPtsLabel.HorizontalAlignment = 'right';
             app.CropOverlapPtsLabel.FontSize = 10;
-            app.CropOverlapPtsLabel.Position = [1 161 120 20];
+            app.CropOverlapPtsLabel.Position = [1 191 120 20];
             app.CropOverlapPtsLabel.Text = 'Crop Overlap (Pts)';
 
             % Create CropOverlapField
             app.CropOverlapField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.CropOverlapField.Limits = [0 Inf];
+            app.CropOverlapField.RoundFractionalValues = 'on';
             app.CropOverlapField.FontSize = 10;
-            app.CropOverlapField.Position = [131 161 100 20];
+            app.CropOverlapField.Position = [131 191 100 20];
 
             % Create BreakoutStartTimesEditFieldLabel
             app.BreakoutStartTimesEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.BreakoutStartTimesEditFieldLabel.FontSize = 10;
-            app.BreakoutStartTimesEditFieldLabel.Position = [951 551 140 20];
+            app.BreakoutStartTimesEditFieldLabel.Position = [981 611 140 20];
             app.BreakoutStartTimesEditFieldLabel.Text = 'Breakout Start Time (µs)';
 
-            % Create BreakoutStartTimeField
-            app.BreakoutStartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
-            app.BreakoutStartTimeField.ValueChangedFcn = createCallbackFcn(app, @BreakoutStartTimeFieldValueChanged, true);
-            app.BreakoutStartTimeField.FontSize = 10;
-            app.BreakoutStartTimeField.Position = [841 551 100 20];
+            % Create BreakoutStartTime
+            app.BreakoutStartTime = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.BreakoutStartTime.ValueChangedFcn = createCallbackFcn(app, @BreakoutStartTimeValueChanged, true);
+            app.BreakoutStartTime.FontSize = 10;
+            app.BreakoutStartTime.Position = [871 611 100 20];
 
-            % Create BreakoutEndTimesEditFieldLabel
-            app.BreakoutEndTimesEditFieldLabel = uilabel(app.PdvAnalysisFigure);
-            app.BreakoutEndTimesEditFieldLabel.FontSize = 10;
-            app.BreakoutEndTimesEditFieldLabel.Position = [951 521 140 20];
-            app.BreakoutEndTimesEditFieldLabel.Text = 'Breakout End Time (µs)';
+            % Create SampleEndTimesLabel
+            app.SampleEndTimesLabel = uilabel(app.PdvAnalysisFigure);
+            app.SampleEndTimesLabel.FontSize = 10;
+            app.SampleEndTimesLabel.FontColor = [0.851 0.3255 0.098];
+            app.SampleEndTimesLabel.Position = [981 549 140 22];
+            app.SampleEndTimesLabel.Text = 'Sample End Time (µs)';
 
-            % Create BreakoutEndTimeField
-            app.BreakoutEndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
-            app.BreakoutEndTimeField.ValueChangedFcn = createCallbackFcn(app, @BreakoutEndTimeFieldValueChanged, true);
-            app.BreakoutEndTimeField.FontSize = 10;
-            app.BreakoutEndTimeField.Position = [841 521 100 20];
+            % Create SampleEndTime
+            app.SampleEndTime = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.SampleEndTime.ValueChangedFcn = createCallbackFcn(app, @SampleEndTimeValueChanged, true);
+            app.SampleEndTime.FontSize = 10;
+            app.SampleEndTime.FontColor = [0.851 0.3255 0.098];
+            app.SampleEndTime.Position = [871 551 100 20];
 
-            % Create BaselineFrequencyGhzEditFieldLabel
-            app.BaselineFrequencyGhzEditFieldLabel = uilabel(app.PdvAnalysisFigure);
-            app.BaselineFrequencyGhzEditFieldLabel.FontSize = 10;
-            app.BaselineFrequencyGhzEditFieldLabel.Position = [951 461 140 20];
-            app.BaselineFrequencyGhzEditFieldLabel.Text = 'Baseline Frequency (Ghz)';
+            % Create WindowSizesLabel
+            app.WindowSizesLabel = uilabel(app.PdvAnalysisFigure);
+            app.WindowSizesLabel.FontSize = 10;
+            app.WindowSizesLabel.FontColor = [0.4941 0.1843 0.5569];
+            app.WindowSizesLabel.Position = [981 459 140 22];
+            app.WindowSizesLabel.Text = 'ÿÿ Window Size (µs)';
 
-            % Create BaselineFrequencyField
-            app.BaselineFrequencyField = uieditfield(app.PdvAnalysisFigure, 'numeric');
-            app.BaselineFrequencyField.FontSize = 10;
-            app.BaselineFrequencyField.Position = [841 461 100 20];
-
-            % Create RemoveBaselineLabel
-            app.RemoveBaselineLabel = uilabel(app.PdvAnalysisFigure);
-            app.RemoveBaselineLabel.FontSize = 10;
-            app.RemoveBaselineLabel.Position = [951 581 140 20];
-            app.RemoveBaselineLabel.Text = ' Remove Baseline?';
+            % Create DeltaPhiWindowSize
+            app.DeltaPhiWindowSize = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.DeltaPhiWindowSize.Limits = [0 Inf];
+            app.DeltaPhiWindowSize.ValueChangedFcn = createCallbackFcn(app, @DeltaPhiWindowSizeValueChanged, true);
+            app.DeltaPhiWindowSize.FontSize = 10;
+            app.DeltaPhiWindowSize.FontColor = [0.4941 0.1843 0.5569];
+            app.DeltaPhiWindowSize.Position = [871 461 100 20];
 
             % Create ProbeLaserWavelengthnmLabel
             app.ProbeLaserWavelengthnmLabel = uilabel(app.PdvAnalysisFigure);
             app.ProbeLaserWavelengthnmLabel.FontSize = 10;
-            app.ProbeLaserWavelengthnmLabel.Position = [951 371 140 20];
+            app.ProbeLaserWavelengthnmLabel.Position = [981 356 140 20];
             app.ProbeLaserWavelengthnmLabel.Text = 'Probe Laser Wavelength (nm)';
 
             % Create WavelengthField
             app.WavelengthField = uieditfield(app.PdvAnalysisFigure, 'numeric');
-            app.WavelengthField.Position = [841 371 100 20];
+            app.WavelengthField.Limits = [0 Inf];
+            app.WavelengthField.Position = [871 356 100 20];
             app.WavelengthField.Value = 1550;
 
             % Create OffsetSampleStartTimesLabel
             app.OffsetSampleStartTimesLabel = uilabel(app.PdvAnalysisFigure);
             app.OffsetSampleStartTimesLabel.FontSize = 10;
-            app.OffsetSampleStartTimesLabel.Position = [951 250 140 20];
+            app.OffsetSampleStartTimesLabel.Position = [981 235 140 20];
             app.OffsetSampleStartTimesLabel.Text = 'Offset Sample Start Time (µs)';
 
             % Create OffsetSampleStartTimeField
             app.OffsetSampleStartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.OffsetSampleStartTimeField.ValueChangedFcn = createCallbackFcn(app, @OffsetSampleStartTimeFieldValueChanged, true);
-            app.OffsetSampleStartTimeField.Position = [841 251 100 20];
+            app.OffsetSampleStartTimeField.Position = [871 236 100 20];
 
             % Create OffsetSampleEndTimesLabel
             app.OffsetSampleEndTimesLabel = uilabel(app.PdvAnalysisFigure);
             app.OffsetSampleEndTimesLabel.FontSize = 10;
-            app.OffsetSampleEndTimesLabel.Position = [951 221 140 20];
+            app.OffsetSampleEndTimesLabel.Position = [981 206 140 20];
             app.OffsetSampleEndTimesLabel.Text = 'Offset Sample End Time (µs)';
 
             % Create OffsetSampleEndTimeField
             app.OffsetSampleEndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
             app.OffsetSampleEndTimeField.ValueChangedFcn = createCallbackFcn(app, @OffsetSampleEndTimeFieldValueChanged, true);
-            app.OffsetSampleEndTimeField.Position = [841 221 100 20];
+            app.OffsetSampleEndTimeField.Position = [871 206 100 20];
 
             % Create ZeroVeloctymsLabel_2
             app.ZeroVeloctymsLabel_2 = uilabel(app.PdvAnalysisFigure);
             app.ZeroVeloctymsLabel_2.FontSize = 10;
-            app.ZeroVeloctymsLabel_2.Position = [951 160 140 20];
+            app.ZeroVeloctymsLabel_2.Position = [981 145 140 20];
             app.ZeroVeloctymsLabel_2.Text = '''Zero'' Velocty (m/s)';
 
             % Create ZeroVelocityField
             app.ZeroVelocityField = uieditfield(app.PdvAnalysisFigure, 'numeric');
-            app.ZeroVelocityField.Position = [841 161 100 20];
-
-            % Create FloatingBaselineToggle
-            app.FloatingBaselineToggle = uiswitch(app.PdvAnalysisFigure, 'slider');
-            app.FloatingBaselineToggle.FontSize = 10;
-            app.FloatingBaselineToggle.Position = [870 431 45 20];
-            app.FloatingBaselineToggle.Value = 'On';
-
-            % Create FloatingBaselineLabel
-            app.FloatingBaselineLabel = uilabel(app.PdvAnalysisFigure);
-            app.FloatingBaselineLabel.FontSize = 10;
-            app.FloatingBaselineLabel.Position = [951 431 140 20];
-            app.FloatingBaselineLabel.Text = ' Floating Baseline';
+            app.ZeroVelocityField.Position = [871 146 100 20];
 
             % Create ImportTraceButton
             app.ImportTraceButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ImportTraceButton.ButtonPushedFcn = createCallbackFcn(app, @ImportTraceButtonPushed, true);
             app.ImportTraceButton.FontSize = 10;
-            app.ImportTraceButton.Position = [91 521 140 20];
+            app.ImportTraceButton.Position = [91 551 140 20];
             app.ImportTraceButton.Text = 'Import Trace';
 
             % Create SaveFigureButton
             app.SaveFigureButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.SaveFigureButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFigureButtonPushed, true);
             app.SaveFigureButton.FontSize = 10;
-            app.SaveFigureButton.Position = [841 41 130 20];
+            app.SaveFigureButton.Position = [871 41 130 20];
             app.SaveFigureButton.Text = 'Save Figure';
 
             % Create FigureChoiceDropDown
             app.FigureChoiceDropDown = uidropdown(app.PdvAnalysisFigure);
             app.FigureChoiceDropDown.Items = {'Raw', 'Cropped', 'Processed', 'Velocity'};
             app.FigureChoiceDropDown.FontSize = 10;
-            app.FigureChoiceDropDown.Position = [981 41 100 20];
+            app.FigureChoiceDropDown.Position = [1011 41 100 20];
             app.FigureChoiceDropDown.Value = 'Raw';
 
             % Create ImportParametersButton
             app.ImportParametersButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ImportParametersButton.ButtonPushedFcn = createCallbackFcn(app, @ImportParametersButtonPushed, true);
             app.ImportParametersButton.FontSize = 10;
-            app.ImportParametersButton.Position = [91 491 140 20];
+            app.ImportParametersButton.Position = [91 521 140 20];
             app.ImportParametersButton.Text = 'Import Parameters';
 
             % Create BandwidthGHzLabel
             app.BandwidthGHzLabel = uilabel(app.PdvAnalysisFigure);
             app.BandwidthGHzLabel.HorizontalAlignment = 'right';
             app.BandwidthGHzLabel.FontSize = 10;
-            app.BandwidthGHzLabel.Position = [1 401 120 20];
+            app.BandwidthGHzLabel.Position = [1 431 120 20];
             app.BandwidthGHzLabel.Text = 'Bandwidth (GHz)';
 
             % Create BandwidthField
             app.BandwidthField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.BandwidthField.Limits = [0 Inf];
             app.BandwidthField.FontSize = 10;
-            app.BandwidthField.Position = [131 401 100 20];
+            app.BandwidthField.Position = [131 431 100 20];
             app.BandwidthField.Value = 8;
 
             % Create ImportH5DatasetButton
             app.ImportH5DatasetButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ImportH5DatasetButton.ButtonPushedFcn = createCallbackFcn(app, @ImportH5DatasetButtonPushed, true);
             app.ImportH5DatasetButton.FontSize = 10;
-            app.ImportH5DatasetButton.Position = [91 551 140 20];
+            app.ImportH5DatasetButton.Position = [91 581 140 20];
             app.ImportH5DatasetButton.Text = 'Import H5 Dataset';
 
             % Create SaveFilematButton
             app.SaveFilematButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.SaveFilematButton.ButtonPushedFcn = createCallbackFcn(app, @SaveFilematButtonPushed, true);
             app.SaveFilematButton.FontSize = 10;
-            app.SaveFilematButton.Position = [841 11 130 20];
+            app.SaveFilematButton.Position = [871 11 130 20];
             app.SaveFilematButton.Text = 'Save File (.mat)';
 
             % Create FileSaveDropDown
             app.FileSaveDropDown = uidropdown(app.PdvAnalysisFigure);
             app.FileSaveDropDown.Items = {'Velocity', 'Parameters'};
             app.FileSaveDropDown.FontSize = 10;
-            app.FileSaveDropDown.Position = [981 11 100 20];
+            app.FileSaveDropDown.Position = [1011 11 100 20];
             app.FileSaveDropDown.Value = 'Velocity';
+
+            % Create CheckDeltaPhiButton
+            app.CheckDeltaPhiButton = uibutton(app.PdvAnalysisFigure, 'push');
+            app.CheckDeltaPhiButton.ButtonPushedFcn = createCallbackFcn(app, @CheckDeltaPhiButtonPushed, true);
+            app.CheckDeltaPhiButton.FontSize = 10;
+            app.CheckDeltaPhiButton.Position = [871 429 120 22];
+            app.CheckDeltaPhiButton.Text = 'Check ÿÿ Window';
+
+            % Create ApplyDeltaPhiButton
+            app.ApplyDeltaPhiButton = uibutton(app.PdvAnalysisFigure, 'push');
+            app.ApplyDeltaPhiButton.ButtonPushedFcn = createCallbackFcn(app, @ApplyDeltaPhiButtonPushed, true);
+            app.ApplyDeltaPhiButton.FontSize = 10;
+            app.ApplyDeltaPhiButton.Position = [871 399 120 22];
+            app.ApplyDeltaPhiButton.Text = 'Apply ÿÿ Correction';
+
+            % Create CancelBaselineButton
+            app.CancelBaselineButton = uibutton(app.PdvAnalysisFigure, 'push');
+            app.CancelBaselineButton.ButtonPushedFcn = createCallbackFcn(app, @CancelBaselineButtonPushed, true);
+            app.CancelBaselineButton.FontSize = 10;
+            app.CancelBaselineButton.Position = [1001 489 110 22];
+            app.CancelBaselineButton.Text = 'Reset';
+
+            % Create CancelDeltaPhiButton
+            app.CancelDeltaPhiButton = uibutton(app.PdvAnalysisFigure, 'push');
+            app.CancelDeltaPhiButton.ButtonPushedFcn = createCallbackFcn(app, @CancelDeltaPhiButtonPushed, true);
+            app.CancelDeltaPhiButton.FontSize = 10;
+            app.CancelDeltaPhiButton.Position = [1001 399 110 22];
+            app.CancelDeltaPhiButton.Text = 'Reset';
+
+            % Create SampleStartTimesLabel
+            app.SampleStartTimesLabel = uilabel(app.PdvAnalysisFigure);
+            app.SampleStartTimesLabel.FontSize = 10;
+            app.SampleStartTimesLabel.FontColor = [0.851 0.3255 0.098];
+            app.SampleStartTimesLabel.Position = [981 579 140 22];
+            app.SampleStartTimesLabel.Text = 'Sample Start Time (µs)';
+
+            % Create SampleStartTime
+            app.SampleStartTime = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.SampleStartTime.ValueChangedFcn = createCallbackFcn(app, @SampleStartTimeValueChanged, true);
+            app.SampleStartTime.FontSize = 10;
+            app.SampleStartTime.FontColor = [0.851 0.3255 0.098];
+            app.SampleStartTime.Position = [871 581 100 20];
+
+            % Create Line24
+            app.Line24 = uilabel(app.PdvAnalysisFigure);
+            app.Line24.HorizontalAlignment = 'center';
+            app.Line24.VerticalAlignment = 'top';
+            app.Line24.Position = [871 380 240 22];
+            app.Line24.Text = '______________________________________';
+
+            % Create Line45
+            app.Line45 = uilabel(app.PdvAnalysisFigure);
+            app.Line45.HorizontalAlignment = 'center';
+            app.Line45.VerticalAlignment = 'top';
+            app.Line45.Position = [871 95 240 22];
+            app.Line45.Text = '______________________________________';
+
+            % Create Line13
+            app.Line13 = uilabel(app.PdvAnalysisFigure);
+            app.Line13.HorizontalAlignment = 'center';
+            app.Line13.VerticalAlignment = 'top';
+            app.Line13.Position = [13 105 222 22];
+            app.Line13.Text = '____________________________________';
+
+            % Create Label1
+            app.Label1 = uilabel(app.PdvAnalysisFigure);
+            app.Label1.FontSize = 20;
+            app.Label1.FontWeight = 'bold';
+            app.Label1.Position = [13 604 25 27];
+            app.Label1.Text = '1';
+
+            % Create Label2
+            app.Label2 = uilabel(app.PdvAnalysisFigure);
+            app.Label2.FontSize = 20;
+            app.Label2.FontWeight = 'bold';
+            app.Label2.Position = [1096 604 25 27];
+            app.Label2.Text = '2';
+
+            % Create Label3
+            app.Label3 = uilabel(app.PdvAnalysisFigure);
+            app.Label3.FontSize = 20;
+            app.Label3.FontWeight = 'bold';
+            app.Label3.Position = [13 71 25 27];
+            app.Label3.Text = '3';
+
+            % Create Label4
+            app.Label4 = uilabel(app.PdvAnalysisFigure);
+            app.Label4.FontSize = 20;
+            app.Label4.FontWeight = 'bold';
+            app.Label4.Position = [1096 323 25 27];
+            app.Label4.Text = '4';
+
+            % Create ZeroTimesLabel
+            app.ZeroTimesLabel = uilabel(app.PdvAnalysisFigure);
+            app.ZeroTimesLabel.FontSize = 10;
+            app.ZeroTimesLabel.FontColor = [0 0.4471 0.7412];
+            app.ZeroTimesLabel.Position = [981 519 140 22];
+            app.ZeroTimesLabel.Text = 'Zero ÿ Time (µs)';
+
+            % Create ZeroPhiTimeField
+            app.ZeroPhiTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
+            app.ZeroPhiTimeField.ValueChangedFcn = createCallbackFcn(app, @ZeroPhiTimeFieldValueChanged, true);
+            app.ZeroPhiTimeField.FontSize = 10;
+            app.ZeroPhiTimeField.FontColor = [0 0.4471 0.7412];
+            app.ZeroPhiTimeField.Position = [871 521 100 20];
 
             % Show the figure after all components are created
             app.PdvAnalysisFigure.Visible = 'on';
