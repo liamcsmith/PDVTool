@@ -487,7 +487,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 app.Data.v  = inputargs.Voltage;
             end
             
-            if all(isfield(app.Data,{'t','v','fs'}))
+            if all(isfield(app.Data,{'t','v'}))
                 ReprocessRawButtonButtonPushed(app)
             end
                 
@@ -1203,6 +1203,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
             
             if AWPExist && NonZeroWindow && SampleRegionExist && app.Baseline.BasicRemoval
+                % Post Phi0 DeltaPhi prediction via linear interpolation
+                % samples at DeltaPhiWindowSize
                 A           = app.Baseline.A;
                 W           = app.Baseline.W;
                 P           = app.Baseline.P;
@@ -1224,16 +1226,23 @@ classdef PdvAnalysis < matlab.apps.AppBase
                                          app.Data.t,...
                                          'linear');
                 
-                [~,MinIdx] = min(abs(DeltaPhi));
-                MaxIdx = find(abs(DeltaPhi-DeltaPhi(MinIdx))>(pi/2),1);
-                Idx = Steps(MinIdx:MaxIdx);
+                % Pre Phi0 DeltaPhi prediction via extrapolation of
+                % samples within DeltaPhiWindowSize from Phi0
+                [~,MinIdx] = min(abs(app.Data.t - ((app.ZeroPhiTimeField.Value)/1e6)));
+                [~,MaxIdx] = min(abs(app.Data.t - ((app.Data.t(MinIdx)) + (app.DeltaPhiWindowSize.Value/1e6))));
                 
-                tmpT   = app.Data.t(Idx);
-                tmpPhi = DeltaPhi(MinIdx:MaxIdx);
-                [tmpT,tmpPhi] = prepareCurveData(tmpT,tmpPhi);
-                PhiFit = fit(tmpT,tmpPhi,'poly1');
+                Steps      = round(linspace(MinIdx,MaxIdx,20)');
+                DeltaPhi   = nan(numel(Steps)-1,1);
+                
+                for i = 1:numel(DeltaPhi)
+                    DeltaPhi(i) = FindDeltaPhi(app,A,W,P,Steps(i):Steps(i+1));
+                end
+                Steps      = round(movmean(Steps,2,'Endpoints','discard'));
+                PhiFit     = fit(app.Data.t(Steps),app.CleanPhase(DeltaPhi),'poly1');                     
+                
+                % Merging Pre & Post Phi0 Data
                 DeltaPhiInterp(isnan(DeltaPhiInterp)) = PhiFit(app.Data.t(isnan(DeltaPhiInterp)));
-                DeltaPhi = DeltaPhiInterp;
+                DeltaPhi   = DeltaPhiInterp;
                 
                 %Output
                 app.Data.v_baseline_removed = app.Data.v - A*cos((W*app.Data.t)+P+DeltaPhi);
@@ -1313,8 +1322,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
             app.ReadyLamp.Color = 'r';
             drawnow
             
-            if app.Baseline.PhaseShiftCorrection
-                app.Baseline                    = rmfield(app.Baseline,'PhaseShiftWindowSize');
+            if app.Baseline.DeltaPhiCorrection
+                app.Baseline                    = rmfield(app.Baseline,'DeltaPhiWindowSize');
                 app.Baseline.DeltaPhiCorrection = false;
                 
                 app.Data.v_baseline_removed = app.Data.v - app.Baseline.A*cos((app.Baseline.W*app.Data.t)+app.Baseline.P);
@@ -1338,6 +1347,10 @@ classdef PdvAnalysis < matlab.apps.AppBase
             try
                 app.CropTransform.zero_phi_line = xline(app.CropPlot,app.ZeroPhiTimeField.Value,'Color',app.ZeroTimesLabel.FontColor);
             catch
+            end
+            
+            if isfield(app.ProcessedTransform,'DeltaPhiWindowStartLine')
+                DeltaPhiWindowSizeValueChanged(app)
             end
         end
     end
