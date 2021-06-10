@@ -462,15 +462,20 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 app
                 inputargs.Time      {mustBeNumeric};
                 inputargs.Voltage   {mustBeNumeric};
+                inputargs.ProbeWavelengthNM {mustBeNumeric} = 1550;
                 inputargs.Trace     
                 inputargs.Parameters
                 inputargs.Automate = false
-                inputargs.Title
+                inputargs.Title = 'Generic PDV Trace Analysis'
                 inputargs.ParentApp
             end
             opengl HARDWAREBASIC
             if isfield(inputargs,'Title')
-                app.PdvAnalysisFigure.Name = strcat([inputargs.Title,' ',char([92 76])]);
+                app.PdvAnalysisFigure.Name = inputargs.Title;
+            end
+            
+            if isfield(inputargs,'ProbeWavelengthNM')
+                app.WavelengthField.Value = inputargs.ProbeWavelengthNM;
             end
             
             app.ReadyLamp.Color = 'r';
