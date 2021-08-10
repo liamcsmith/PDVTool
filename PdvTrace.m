@@ -7,6 +7,10 @@ classdef PdvTrace
         ProcessedTrace
         ProbeWavelengthNM
     end
+    properties (Dependent)
+        Time
+        Velocity
+    end
     properties (Dependent,Access=private)
         StartTimeUs
         EndTimeUs
@@ -39,7 +43,26 @@ classdef PdvTrace
             obj.Title               = inputargs.Title;
             obj.ProbeWavelengthNM   = inputargs.ProbeWavelengthNM;
             clearvars inputargs
+            
+            % Loading Saved if it exists
+            if isfile(obj.RawTrace.FilePath)
+                [tmpfolder,tmpfile,~] = fileparts(obj.RawTrace.FilePath);
+                tmpfile = fullfile(tmpfolder,[tmpfile,'PDVTrace.mat']);
+                if isfile(tmpfile)
+                    tmp = load(tmpfile);
+                    if ischar(obj.AnalysisParameters)
+                        obj.AnalysisParameters = tmp.AnalysisParameters;
+                    end
+                    if ischar(obj.ProcessedTrace)
+                        obj.ProcessedTrace     = tmp.ProcessedTrace;
+                    end
+                    if ischar(obj.ProbeWavelengthNM)
+                        obj.ProbeWavelengthNM = tmp.ProbeWavelengthNM;
+                    end
+                end
+            end
         end
+        
         function obj = Analyse(obj)
             
             ParentFunctionInterfacingHandle = @ParentFunctionPullOutputs;
@@ -75,9 +98,14 @@ classdef PdvTrace
                                             'Error'     , tmp.Error);
                 
                 obj.AnalysisParameters = tmp.Parameters;
+                
+                % Saving to file
+                [filepath,name,~] = fileparts(obj.RawTrace.FilePath);
+                filepath = fullfile(filepath,[name,'PDVTrace']);
+                PDVInfo = struct('AnalysisParameters',obj.AnalysisParameters,'ProcessedTrace',obj.ProcessedTrace,'ProbeWavelengthNM',obj.ProbeWavelengthNM);
+                save(filepath,'-struct','PDVInfo');
             end
             clearvars ChildApp
-            
             
             function ParentFunctionPullOutputs(Outputs)
                 if exist('Outputs') %#ok<EXIST>
@@ -85,9 +113,16 @@ classdef PdvTrace
                 end
             end
         end
+        
         function obj = ResetAnalysis(obj)
             obj.AnalysisParameters = 'Not Defined';
             obj.ProcessedTrace     = 'Not Calculated';
+            
+            [filepath,name,~] = fileparts(obj.RawTrace.FilePath);
+            filepath = fullfile(filepath,[name,'PDVTrace']);
+            if isfile(filepath)
+                delete(filepath)
+            end
         end
         function AnalysisSummary(obj)
             disp('PDV Trace Analysis:')
@@ -101,6 +136,18 @@ classdef PdvTrace
     end
     
     methods
+        function Time       = get.Time(obj)
+            if ~isnan(obj.Delay)
+                Time = obj.ProcessedTrace.Time - obj.Delay;
+            else
+                Time = obj.ProcessedTrace.Time;
+            end
+        end
+        
+        function Velocity   = get.Velocity(obj)
+            Velocity =  obj.ProcessedTrace.Velocity;
+        end
+        
         function StartTime  = get.StartTimeUs(  obj)
             if isstruct(obj.AnalysisParameters)
                 StartTime = num2str(obj.AnalysisParameters.TransformProps.start_time * 1e6);
