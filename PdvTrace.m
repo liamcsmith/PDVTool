@@ -10,6 +10,7 @@ classdef PdvTrace
     properties (Dependent)
         Time
         Velocity
+        Error
     end
     properties (Dependent,Access=private)
         StartTimeUs
@@ -19,7 +20,6 @@ classdef PdvTrace
         StartFreqGHz
         EndFreqGHz
     end
-    
     methods
         function obj = PdvTrace(inputargs)
             arguments
@@ -62,7 +62,6 @@ classdef PdvTrace
                 end
             end
         end
-        
         function obj = Analyse(obj)
             
             ParentFunctionInterfacingHandle = @ParentFunctionPullOutputs;
@@ -113,7 +112,6 @@ classdef PdvTrace
                 end
             end
         end
-        
         function obj = ResetAnalysis(obj)
             obj.AnalysisParameters = 'Not Defined';
             obj.ProcessedTrace     = 'Not Calculated';
@@ -134,7 +132,6 @@ classdef PdvTrace
             disp(['Overlap [Samples]: ',obj.Overlap])
         end
     end
-    
     methods
         function Time       = get.Time(obj)
             if ~isnan(obj.Delay)
@@ -143,11 +140,12 @@ classdef PdvTrace
                 Time = obj.ProcessedTrace.Time;
             end
         end
-        
         function Velocity   = get.Velocity(obj)
             Velocity =  obj.ProcessedTrace.Velocity;
         end
-        
+        function Error      = get.Error(obj)
+            Error =  obj.ProcessedTrace.Error;
+        end
         function StartTime  = get.StartTimeUs(  obj)
             if isstruct(obj.AnalysisParameters)
                 StartTime = num2str(obj.AnalysisParameters.TransformProps.start_time * 1e6);
@@ -191,7 +189,6 @@ classdef PdvTrace
             end
         end
     end
-    
     methods (Static)
         function FullFilePath = GetFile
             [File,Path] = uigetfile('*');
