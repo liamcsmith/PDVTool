@@ -702,6 +702,11 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 app.Velocity = [];
             end
             
+            % Reseting the Various values
+            app.OffsetSampleStartTimeField.Value = 0;
+            app.OffsetSampleEndTimeField.Value   = 0;
+            app.ZeroVelocityField.Value          = 0;
+            
             % Recalculating velocity scale
             app.VelocityTransform.velocity_scale = 0.5*(1e-9 * app.WavelengthField.Value)*app.VelocityTransform.F-app.ZeroVelocityField.Value;
             
