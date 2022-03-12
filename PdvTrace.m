@@ -20,6 +20,10 @@ classdef PdvTrace
         StartFreqGHz
         EndFreqGHz
     end
+    properties (Access=private)
+        ScopeTracePath = '~/Documents/GitHub/ImportScope' % CHANGE ME TO SATISFY DEPENDENCY
+    end
+   
     methods
         function obj = PdvTrace(inputargs)
             arguments
@@ -30,13 +34,15 @@ classdef PdvTrace
                 inputargs.Title                 = 'Generic PDV Trace'
                 inputargs.ProbeWavelengthNM     = 1550;
             end
+            obj.CheckDependency
             
-            if strcmp(inputargs.FilePath,'Undefined')
-                obj.RawTrace            = ScopeTrace('FilePath',obj.GetFile);
-            else
-                obj.RawTrace            = ScopeTrace('FilePath',inputargs.FilePath);
+            switch inputargs.FilePath
+                case 'Undefined'
+                    obj.RawTrace    = ScopeTrace;
+                otherwise
+                    obj.RawTrace    = ScopeTrace('FilePath', ...
+                                                 inputargs.FilePath);
             end
-            
             obj.AnalysisParameters  = inputargs.AnalysisParameters;
             obj.Delay               = inputargs.Delay;
             obj.ProcessedTrace      = inputargs.ProcessedTrace;
@@ -63,51 +69,52 @@ classdef PdvTrace
             end
         end
         function obj = Analyse(obj)
-            
+            obj.CheckDependency
             ParentFunctionInterfacingHandle = @ParentFunctionPullOutputs;
-            
-            if strcmp(obj.AnalysisParameters,'Undefined')
-                ChildApp.Handle = PdvAnalysis('ParentApp'               , ParentFunctionInterfacingHandle, ...
-                                              'Trace'                   , obj.RawTrace, ...
-                                              'ProbeWavelengthNM'       , obj.ProbeWavelengthNM, ...
-                                              'Title'                   , obj.Title);
-            else
-                if strcmp(obj.ProcessedTrace,'Not Calculated')
-                    ChildApp.Handle = PdvAnalysis('ParentApp'           , ParentFunctionInterfacingHandle, ...
-                                                  'Trace'               , obj.RawTrace, ...
-                                                  'ProbeWavelengthNM'   , obj.ProbeWavelengthNM, ...
-                                                  'Title'               , obj.Title, ...
-                                                  'Parameters'          , obj.AnalysisParameters, ...
-                                                  'Automate'            , true);
-                else
+            if isstruct(obj.AnalysisParameters)
+                if isstruct(obj.ProcessedTrace)
                     ChildApp.Handle = PdvAnalysis('ParentApp'           , ParentFunctionInterfacingHandle, ...
                                                   'Trace'               , obj.RawTrace, ...
                                                   'ProbeWavelengthNM'   , obj.ProbeWavelengthNM, ...
                                                   'Title'               , obj.Title, ...
                                                   'Parameters'          , obj.AnalysisParameters);
+                else
+                    ChildApp.Handle = PdvAnalysis('ParentApp'           , ParentFunctionInterfacingHandle, ...
+                                                   'Trace'               , obj.RawTrace, ...
+                                                   'ProbeWavelengthNM'   , obj.ProbeWavelengthNM, ...
+                                                   'Title'               , obj.Title, ...
+                                                   'Parameters'          , obj.AnalysisParameters, ...
+                                                   'Automate'            , true);
+                    
                 end
+            else
+                    ChildApp.Handle = PdvAnalysis('ParentApp'               , ParentFunctionInterfacingHandle, ...
+                                                   'Trace'                   , obj.RawTrace, ...
+                                                   'ProbeWavelengthNM'       , obj.ProbeWavelengthNM, ...
+                                                   'Title'                   , obj.Title);
             end
-            waitfor(ChildApp.Handle)
             
+            waitfor(ChildApp.Handle)
             if isfield(ChildApp,'Outputs')
-                tmp = ChildApp.Outputs;
-                
-                obj.ProcessedTrace = struct('Time'      , tmp.Time, ...
-                                            'Velocity'  , tmp.Velocity, ...
-                                            'Error'     , tmp.Error);
-                
-                obj.AnalysisParameters = tmp.Parameters;
-                
-                % Saving to file
+                % Parsing PDV Analysis outputs
+                obj.ProcessedTrace = struct('Time'      , ChildApp.Outputs.Time, ...
+                                            'Velocity'  , ChildApp.Outputs.Velocity, ...
+                                            'Error'     , ChildApp.Outputs.Error);
+                obj.AnalysisParameters = ChildApp.Outputs.Parameters;
+                % Generating cache filename
                 [filepath,name,~] = fileparts(obj.RawTrace.FilePath);
-                filepath = fullfile(filepath,[name,'PDVTrace']);
-                PDVInfo = struct('AnalysisParameters',obj.AnalysisParameters,'ProcessedTrace',obj.ProcessedTrace,'ProbeWavelengthNM',obj.ProbeWavelengthNM);
+                filepath          = fullfile(filepath,[name,'PDVTrace']);
+                % Creating Save struct
+                PDVInfo           = struct('AnalysisParameters',obj.AnalysisParameters, ...
+                                           'ProcessedTrace'    ,obj.ProcessedTrace,     ...
+                                           'ProbeWavelengthNM' ,obj.ProbeWavelengthNM);
+                % Saving to file
                 save(filepath,'-struct','PDVInfo');
             end
             clearvars ChildApp
             
             function ParentFunctionPullOutputs(Outputs)
-                if exist('Outputs') %#ok<EXIST>
+                if exist('Outputs','var')
                     ChildApp.Outputs = Outputs;
                 end
             end
@@ -122,7 +129,7 @@ classdef PdvTrace
                 delete(filepath)
             end
         end
-        function AnalysisSummary(obj)
+        function       AnalysisSummary(obj)
             disp('PDV Trace Analysis:')
             disp(['Start Time [us]: ',obj.StartTimeUs])
             disp(['End Time [us]: ',obj.EndTimeUs])
@@ -133,17 +140,17 @@ classdef PdvTrace
         end
     end
     methods
-        function Time       = get.Time(obj)
+        function Time       = get.Time(         obj)
             if ~isnan(obj.Delay)
                 Time = obj.ProcessedTrace.Time - obj.Delay;
             else
                 Time = obj.ProcessedTrace.Time;
             end
         end
-        function Velocity   = get.Velocity(obj)
+        function Velocity   = get.Velocity(     obj)
             Velocity =  obj.ProcessedTrace.Velocity;
         end
-        function Error      = get.Error(obj)
+        function Error      = get.Error(        obj)
             Error =  obj.ProcessedTrace.Error;
         end
         function StartTime  = get.StartTimeUs(  obj)
@@ -188,14 +195,9 @@ classdef PdvTrace
                 Overlap = 'Undefined';
             end
         end
-    end
-    methods (Static)
-        function FullFilePath = GetFile
-            [File,Path] = uigetfile('*');
-            if ~isnumeric(File)
-                FullFilePath = fullfile(Path,File);
-            else
-                FullFilePath = '';
+        function              CheckDependency(  obj)
+            if ~exist('ScopeTrace','file')
+                addpath(obj.ScopeTracePath);
             end
         end
     end

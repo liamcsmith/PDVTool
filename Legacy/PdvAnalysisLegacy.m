@@ -1,82 +1,82 @@
-classdef PdvAnalysis3 < matlab.apps.AppBase
+classdef PdvAnalysis < matlab.apps.AppBase
 
     % Properties that correspond to app components
     properties (Access = public)
         PdvAnalysisFigure               matlab.ui.Figure
-        ZeroPhiTimeField                matlab.ui.control.NumericEditField
-        ZeroTimesLabel                  matlab.ui.control.Label
-        Label4                          matlab.ui.control.Label
-        Label3                          matlab.ui.control.Label
-        Label2                          matlab.ui.control.Label
-        Label1                          matlab.ui.control.Label
-        Line13                          matlab.ui.control.Label
-        Line45                          matlab.ui.control.Label
-        Line24                          matlab.ui.control.Label
-        SampleStartTime                 matlab.ui.control.NumericEditField
-        SampleStartTimesLabel           matlab.ui.control.Label
-        CancelDeltaPhiButton            matlab.ui.control.Button
-        CancelBaselineButton            matlab.ui.control.Button
-        ApplyDeltaPhiButton             matlab.ui.control.Button
-        CheckDeltaPhiButton             matlab.ui.control.Button
-        FileSaveDropDown                matlab.ui.control.DropDown
-        SaveFilematButton               matlab.ui.control.Button
-        ImportH5DatasetButton           matlab.ui.control.Button
-        BandwidthField                  matlab.ui.control.NumericEditField
-        BandwidthGHzLabel               matlab.ui.control.Label
-        ImportParametersButton          matlab.ui.control.Button
-        FigureChoiceDropDown            matlab.ui.control.DropDown
-        SaveFigureButton                matlab.ui.control.Button
-        ImportTraceButton               matlab.ui.control.Button
-        ZeroVelocityField               matlab.ui.control.NumericEditField
-        ZeroVeloctymsLabel_2            matlab.ui.control.Label
-        OffsetSampleEndTimeField        matlab.ui.control.NumericEditField
-        OffsetSampleEndTimesLabel       matlab.ui.control.Label
-        OffsetSampleStartTimeField      matlab.ui.control.NumericEditField
-        OffsetSampleStartTimesLabel     matlab.ui.control.Label
-        WavelengthField                 matlab.ui.control.NumericEditField
-        ProbeLaserWavelengthnmLabel     matlab.ui.control.Label
-        DeltaPhiWindowSize              matlab.ui.control.NumericEditField
-        WindowSizesLabel                matlab.ui.control.Label
-        SampleEndTime                   matlab.ui.control.NumericEditField
-        SampleEndTimesLabel             matlab.ui.control.Label
-        BreakoutStartTime               matlab.ui.control.NumericEditField
-        BreakoutStartTimesEditFieldLabel  matlab.ui.control.Label
-        CropOverlapField                matlab.ui.control.NumericEditField
-        CropOverlapPtsLabel             matlab.ui.control.Label
-        CropWindowSizeField             matlab.ui.control.NumericEditField
-        CropWindowSizePtsEditFieldLabel  matlab.ui.control.Label
-        CropNfftField                   matlab.ui.control.NumericEditField
-        CropNfftPtsEditFieldLabel_2     matlab.ui.control.Label
-        MaxFrequencyField               matlab.ui.control.NumericEditField
-        MaxFrequencyGHzEditFieldLabel   matlab.ui.control.Label
-        MinFrequencyField               matlab.ui.control.NumericEditField
-        MinFrequencyGHzEditFieldLabel_2  matlab.ui.control.Label
-        EndTimeField                    matlab.ui.control.NumericEditField
-        EndTimesEditFieldLabel_2        matlab.ui.control.Label
-        StartTimeField                  matlab.ui.control.NumericEditField
-        StartTimesEditFieldLabel_2      matlab.ui.control.Label
-        RawWindowSizeField              matlab.ui.control.NumericEditField
-        RawWindowSizePtsEditFieldLabel  matlab.ui.control.Label
-        RawNfftField                    matlab.ui.control.NumericEditField
-        RawNfftPtsEditFieldLabel        matlab.ui.control.Label
-        RemoveOffsetButton              matlab.ui.control.Button
-        IdentifyOffsetButton            matlab.ui.control.Button
-        RecalculateVelocitiesButton     matlab.ui.control.Button
-        ReadyLamp                       matlab.ui.control.Lamp
-        ReadyLampLabel                  matlab.ui.control.Label
-        ReprocessRawButton              matlab.ui.control.Button
-        ResetROIButton                  matlab.ui.control.Button
-        ReturnCloseButton               matlab.ui.control.Button
-        ExtractVelocitiesButton         matlab.ui.control.Button
-        ShiftSwitchButton               matlab.ui.control.Button
-        ConfirmRoiButton                matlab.ui.control.Button
-        SetROIButton                    matlab.ui.control.Button
-        ReduceBaselineButton            matlab.ui.control.Button
-        CropSpectrogramButton           matlab.ui.control.Button
         RawPlot                         matlab.ui.control.UIAxes
-        VelocityPlot                    matlab.ui.control.UIAxes
-        ProcessedPlot                   matlab.ui.control.UIAxes
         CropPlot                        matlab.ui.control.UIAxes
+        ProcessedPlot                   matlab.ui.control.UIAxes
+        VelocityPlot                    matlab.ui.control.UIAxes
+        CropSpectrogramButton           matlab.ui.control.Button
+        ReduceBaselineButton            matlab.ui.control.Button
+        SetROIButton                    matlab.ui.control.Button
+        ConfirmRoiButton                matlab.ui.control.Button
+        ShiftSwitchButton               matlab.ui.control.Button
+        ExtractVelocitiesButton         matlab.ui.control.Button
+        ReturnCloseButton               matlab.ui.control.Button
+        ResetROIButton                  matlab.ui.control.Button
+        ReprocessRawButton              matlab.ui.control.Button
+        ReadyLampLabel                  matlab.ui.control.Label
+        ReadyLamp                       matlab.ui.control.Lamp
+        RecalculateVelocitiesButton     matlab.ui.control.Button
+        IdentifyOffsetButton            matlab.ui.control.Button
+        RemoveOffsetButton              matlab.ui.control.Button
+        RawNfftPtsEditFieldLabel        matlab.ui.control.Label
+        RawNfftField                    matlab.ui.control.NumericEditField
+        RawWindowSizePtsEditFieldLabel  matlab.ui.control.Label
+        RawWindowSizeField              matlab.ui.control.NumericEditField
+        StartTimesEditFieldLabel_2      matlab.ui.control.Label
+        StartTimeField                  matlab.ui.control.NumericEditField
+        EndTimesEditFieldLabel_2        matlab.ui.control.Label
+        EndTimeField                    matlab.ui.control.NumericEditField
+        MinFrequencyGHzEditFieldLabel_2  matlab.ui.control.Label
+        MinFrequencyField               matlab.ui.control.NumericEditField
+        MaxFrequencyGHzEditFieldLabel   matlab.ui.control.Label
+        MaxFrequencyField               matlab.ui.control.NumericEditField
+        CropNfftPtsEditFieldLabel_2     matlab.ui.control.Label
+        CropNfftField                   matlab.ui.control.NumericEditField
+        CropWindowSizePtsEditFieldLabel  matlab.ui.control.Label
+        CropWindowSizeField             matlab.ui.control.NumericEditField
+        CropOverlapPtsLabel             matlab.ui.control.Label
+        CropOverlapField                matlab.ui.control.NumericEditField
+        BreakoutStartTimesEditFieldLabel  matlab.ui.control.Label
+        BreakoutStartTime               matlab.ui.control.NumericEditField
+        SampleEndTimesLabel             matlab.ui.control.Label
+        SampleEndTime                   matlab.ui.control.NumericEditField
+        WindowSizesLabel                matlab.ui.control.Label
+        DeltaPhiWindowSize              matlab.ui.control.NumericEditField
+        ProbeLaserWavelengthnmLabel     matlab.ui.control.Label
+        WavelengthField                 matlab.ui.control.NumericEditField
+        OffsetSampleStartTimesLabel     matlab.ui.control.Label
+        OffsetSampleStartTimeField      matlab.ui.control.NumericEditField
+        OffsetSampleEndTimesLabel       matlab.ui.control.Label
+        OffsetSampleEndTimeField        matlab.ui.control.NumericEditField
+        ZeroVeloctymsLabel_2            matlab.ui.control.Label
+        ZeroVelocityField               matlab.ui.control.NumericEditField
+        ImportTraceButton               matlab.ui.control.Button
+        SaveFigureButton                matlab.ui.control.Button
+        FigureChoiceDropDown            matlab.ui.control.DropDown
+        ImportParametersButton          matlab.ui.control.Button
+        BandwidthGHzLabel               matlab.ui.control.Label
+        BandwidthField                  matlab.ui.control.NumericEditField
+        ImportH5DatasetButton           matlab.ui.control.Button
+        SaveFilematButton               matlab.ui.control.Button
+        FileSaveDropDown                matlab.ui.control.DropDown
+        CheckDeltaPhiButton             matlab.ui.control.Button
+        ApplyDeltaPhiButton             matlab.ui.control.Button
+        CancelBaselineButton            matlab.ui.control.Button
+        CancelDeltaPhiButton            matlab.ui.control.Button
+        SampleStartTimesLabel           matlab.ui.control.Label
+        SampleStartTime                 matlab.ui.control.NumericEditField
+        Line24                          matlab.ui.control.Label
+        Line45                          matlab.ui.control.Label
+        Line13                          matlab.ui.control.Label
+        Label1                          matlab.ui.control.Label
+        Label2                          matlab.ui.control.Label
+        Label3                          matlab.ui.control.Label
+        Label4                          matlab.ui.control.Label
+        ZeroTimesLabel                  matlab.ui.control.Label
+        ZeroPhiTimeField                matlab.ui.control.NumericEditField
     end
 
     
@@ -90,7 +90,6 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
         ChildApp                % Location for storing H5 dbpull app
         ParentApp               % Location for storing parent app
         Baseline                = struct('BasicRemoval',false,'DeltaPhiCorrection',false)% Description
-        ScopeTracePath          = '~/Documents/GitHub/ImportScope' % CHANGE ME TO SATISFY DEPENDENCY
     end
     
     properties (Access = public)
@@ -183,6 +182,14 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             MinFrequencyFieldValueChanged(app)
             MaxFrequencyFieldValueChanged(app)
         end
+        function app       = compute_crop_spectrogram(app)
+            
+            % Computing cropped spectrogram
+            app.CropTransform = compute_spectrogram(app,app.TransformProps);
+            
+            % Plotting cropped spectrogram
+            plot_freq_spectrogram(app,app.CropPlot,app.CropTransform,'Cropped Spectrogram')
+        end
         
         % Functions relating to the spectrograms
         function transform = compute_spectrogram(app,props)
@@ -245,7 +252,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             set(get(axes, 'title'), 'Interpreter', 'none')
             set(axes,'Layer','top')
         end
-        function Shift =     FindDeltaPhi(app,Amplitude,Frequency,Phase,Idx)
+        function Shift = FindDeltaPhi(app,Amplitude,Frequency,Phase,Idx)
                 Shift = fminsearch(@(PS)ComputePhaseShift(app,...
                                                        Amplitude,...
                                                        Frequency,...
@@ -269,7 +276,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                                       [(w/(2*pi))-5e6 (w/(2*pi))+5e6]);
                 end
         end
-        function             LoadParameters(app,Parameters)
+        function LoadParameters(app,Parameters)
             % Raw Data
             PopulateRawFields
             if DataExists
@@ -338,7 +345,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                 end
             end
             
-            function       PopulateRawFields
+            function PopulateRawFields
                 app.RawNfftField.Value          = Parameters.RawProps.nfft;
                 app.RawWindowSizeField.Value    = Parameters.RawProps.window_size;
                 app.BandwidthField.Value        = Parameters.RawProps.end_freq / 1e9;
@@ -347,7 +354,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             function Out = DataExists
                 Out = all(isfield(app.Data,{'t','v'}));
             end
-            function       PopulateCropFields
+            function PopulateCropFields
                 app.CropNfftField.Value       = Parameters.TransformProps.nfft;
                 app.CropWindowSizeField.Value = Parameters.TransformProps.window_size;
                 app.CropOverlapField.Value    = Parameters.TransformProps.overlap;
@@ -364,7 +371,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             function Out = BaselineReductionSpecified
                 Out = Parameters.Baseline.BasicRemoval;
             end
-            function       PopulateBaselineReudctionFields
+            function PopulateBaselineReudctionFields
                 app.BreakoutStartTime.Value   = Parameters.Baseline.BreakoutStartTime;
                 BreakoutStartTimeValueChanged(app)
                 app.SampleStartTime.Value   = Parameters.Baseline.SampleStartTime;
@@ -377,7 +384,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             function Out = DeltaPhiCorrectionSpecified
                 Out = Parameters.Baseline.DeltaPhiCorrection;
             end
-            function       PopulateDeltaPhiFields
+            function PopulateDeltaPhiFields
                 app.DeltaPhiWindowSize.Value   = Parameters.Baseline.DeltaPhiWindowSize;
                 DeltaPhiWindowSizeValueChanged(app)
             end
@@ -390,7 +397,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                 end
                 Out = Condition1 && Condition2;
             end
-            function       InsertRoi
+            function InsertRoi
                 app.ProcessedTransform.roi = drawpolygon(app.ProcessedPlot, ...
                                                         'Position',Parameters.ROI.Points, ...
                                                         'FaceAlpha',0,...
@@ -402,23 +409,28 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             function Out = OffsetVelocities
                 Out = isfield(Parameters,'VelocityOffset');
             end
-            function       PopulateVelocityOffsetFields
+            function PopulateVelocityOffsetFields
                 app.OffsetSampleStartTimeField.Value = Parameters.VelocityOffset.SampleStartTime  * 1e6;
                 OffsetSampleStartTimeFieldValueChanged(app)
                 app.OffsetSampleEndTimeField.Value   = Parameters.VelocityOffset.SampleEndTime  * 1e6;
                 OffsetSampleEndTimeFieldValueChanged(app)
             end
         end
-        function             CheckDependency(app)
-            if ~exist('ScopeTrace','file')
-                addpath(app.ScopeTracePath);
-            end
-        end
-    
+                
     end
     methods (Static)
-
-        function PhaseShift                     = CleanPhase(PhaseShift)
+        function [TimeVelocityAndError,Coeffs] = fit_gaussian(Time,signal,BestGuess)
+            [xData, yData] = prepareCurveData( [], rescale(signal) );
+            [Result,~] = fit(xData,yData,...
+                             'gauss1',...
+                             'Display','off',...
+                             'Lower',[0   -Inf 0],...
+                             'StartPoint',BestGuess);
+            Coeffs = coeffvalues(Result);
+            Errors = confint(Result);
+            TimeVelocityAndError = [Time,Coeffs(1,2),Errors(2,2) - Errors(1,2)];
+        end
+        function PhaseShift = CleanPhase(PhaseShift)
                 for j = 1:numel(PhaseShift)-1
                     if PhaseShift(j)< PhaseShift(j+1) && PhaseShift(j) + pi < PhaseShift(j+1)
                         while PhaseShift(j) + pi < PhaseShift(j+1)
@@ -448,31 +460,30 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
         function PdvAnalysisStartup(app, inputargs)
             arguments
                 app
-                inputargs.Time              {mustBeNumeric}
-                inputargs.Voltage           {mustBeNumeric}
-                inputargs.ProbeWavelengthNM {mustBeNumeric}                         = 1550
-                inputargs.Trace
+                inputargs.Time      {mustBeNumeric};
+                inputargs.Voltage   {mustBeNumeric};
+                inputargs.ProbeWavelengthNM {mustBeNumeric} = 1550;
+                inputargs.Trace     
                 inputargs.Parameters
-                inputargs.Automate          {mustBeA(inputargs.Automate,'logical')} = false
-                inputargs.Title             {mustBeText}                            = 'Generic PDV Trace Analysis'
-                inputargs.ParentApp         {mustBeA(inputargs.ParentApp,'function_handle')}
+                inputargs.Automate = false
+                inputargs.Title = 'Generic PDV Trace Analysis'
+                inputargs.ParentApp
             end
             opengl HARDWAREBASIC
-            app.ReadyLamp.Color = 'r';
-            % Fixing Greek Letters
-            DeltaPhiText = char([8710,934]);
-            app.WindowSizesLabel.Text    = [DeltaPhiText,' Window Size (Âµs)'];
-            app.ApplyDeltaPhiButton.Text = ['Apply ',DeltaPhiText,' Correction'];
-            app.CheckDeltaPhiButton.Text = ['Check ',DeltaPhiText,' Window'];
+            if isfield(inputargs,'Title')
+                app.PdvAnalysisFigure.Name = inputargs.Title;
+            end
             
-            app.PdvAnalysisFigure.Name = inputargs.Title;
-            app.WavelengthField.Value  = inputargs.ProbeWavelengthNM;
+            if isfield(inputargs,'ProbeWavelengthNM')
+                app.WavelengthField.Value = inputargs.ProbeWavelengthNM;
+            end
+            
+            app.ReadyLamp.Color = 'r';
             
             if isfield(inputargs,'ParentApp')
                 app.ParentApp = inputargs.ParentApp;
             end
             
-            app.CheckDependency
             if isfield(inputargs,'Trace')
                 app.Data.t  = inputargs.Trace.time;
                 app.Data.v  = inputargs.Trace.voltage;
@@ -489,10 +500,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                 LoadParameters(app,inputargs.Parameters)
             end
             
-            
             if inputargs.Automate && ~isempty(app.Velocity)
-                drawnow
-                pause(1)
                 ReturnCloseButtonButtonPushed(app)
             else
                 app.ReadyLamp.Color = 'g';
@@ -502,19 +510,11 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
         % Button pushed function: CropSpectrogramButton
         function CropSpectrogramButtonPushed(app, event)
             app.ReadyLamp.Color = 'r';
-            drawnow  
-
-            % Computing cropped spectrogram
-            app.CropTransform = compute_spectrogram(app,app.TransformProps);
+            drawnow
             
-            % Plotting cropped spectrogram
-            plot_freq_spectrogram(app,app.CropPlot,app.CropTransform,'Cropped Spectrogram')
-
-            % Passing cropped into processed
+            app = compute_crop_spectrogram(app);
+            
             app.ProcessedTransform = app.CropTransform;
-
-            % Plotting new processesed spectrogram (its an unprocessed
-            % state)
             plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
             
             app.ReadyLamp.Color = 'g';
@@ -584,18 +584,20 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             end
                         
             % Removing any empty timesteps from velocity data
-            Idx = ~any(app.VelocityTransform.P);
-            app.VelocityTransform.P(:,Idx) = [];
-            app.VelocityTransform.T(:,Idx) = [];
+            col_to_remove = ~any(app.VelocityTransform.P); % THIS MIGHT HAVE AN ISSUE
+            app.VelocityTransform.P(:,col_to_remove) = [];
+            app.VelocityTransform.T(:,col_to_remove) = [];
+            clearvars col_to_remove
             
             % Setting the velocity scale from the frequency scale
             app.VelocityTransform.velocity_scale = 0.5*(1e-9 * app.WavelengthField.Value)*app.VelocityTransform.F-app.ZeroVelocityField.Value;
             
             % Removing empty velocity regions from the data
-            Idx = ~any(app.VelocityTransform.P,2);
-            app.VelocityTransform.P(             Idx,:) = [];
-            app.VelocityTransform.F(             Idx,:) = [];
-            app.VelocityTransform.velocity_scale(Idx,:) = [];
+            row_to_remove = ~any(app.VelocityTransform.P,2);
+            app.VelocityTransform.P(row_to_remove,:) = [];
+            app.VelocityTransform.F(row_to_remove,:) = [];
+            app.VelocityTransform.velocity_scale(row_to_remove,:) = [];
+            clearvars row_to_remove
             
             % Plotting the velocity spectrogram
             plot_vel_spectrogram(app,app.VelocityPlot)
@@ -627,58 +629,45 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
 
         % Button pushed function: ExtractVelocitiesButton
         function ExtractVelocitiesButtonButtonPushed(app, event)
+            tic
             app.ReadyLamp.Color = 'r';
             drawnow
+            
             if isfield(app.VelocityTransform,'extracted_velocity_line')
                 delete(app.VelocityTransform.extracted_velocity_line)
                 app.VelocityTransform   = rmfield(app.VelocityTransform,'extracted_velocity_line');
+                app.Velocity = [];
             end
             
-            NumTimes          = numel(app.VelocityTransform.T);
-            NumVels           = numel(app.VelocityTransform.velocity_scale);
-
-            app.Velocity      = zeros(NumTimes,3);
-            app.Velocity(:,1) = app.VelocityTransform.T + app.TransformProps.start_time;
-
-            % Creating LSQCurveFit
-            PMat    = rescale(app.VelocityTransform.P, ...
-                              'InputMin', ...
-                              min(app.VelocityTransform.P), ...
-                              'InputMax', ...
-                              max(app.VelocityTransform.P));
-            opts    = optimoptions("lsqcurvefit",'Display','none');
-            xData   = (1:NumVels)';
-            [~,Idx] = max(PMat(:,1));
-            Coeffs  = [1, ...
-                       Idx, ...
-                       sum(PMat(:,1)>0.5)/1.6651];
-            % Fitting all following timesteps iteratively using previous fit coeffs as a guide.
-            for i   = 1:NumTimes
-                Coeffs = lsqcurvefit(@(x,xD) x(1)*exp(-((xD-x(2))/x(3)).^2), ...
-                                     Coeffs, ...
-                                     xData, ...
-                                     PMat(:,i), ...
-                                     [0.8 0       0      ], ...
-                                     [1.2 NumVels NumVels], ...
-                                     opts);
-                app.Velocity(i,2) = Coeffs(2);
-                app.Velocity(i,3) = Coeffs(3)/10;
+            app.Velocity = zeros(length(app.VelocityTransform.T),3);
+            
+            % Creating the initial guess for the gaussian fit
+            [~,init_velocity_guess] = max(app.VelocityTransform.P(:,1)); %this finds the index
+            Coeffs = [1 init_velocity_guess 10]; %the peak velocity is scaled down by the max velocity so, amplitude a=1. b is the index. c=10 is the std dev guess.
+            
+            VelTransformT = app.VelocityTransform.T;
+            VelTransformP = app.VelocityTransform.P;
+            StartTime     = app.TransformProps.start_time;
+            
+            % Fitting all following timesteps iteratively using previous fit as a guide.
+            for i = 1:numel(app.VelocityTransform.T)
+                [app.Velocity(i,:),Coeffs] = app.fit_gaussian(VelTransformT(i) + StartTime,...
+                                                              VelTransformP(:,i),...
+                                                              Coeffs);
             end
             
             % Mapping the velocity and error vectors from pixel space to velocity space.
-            app.Velocity(:,2) = interp1(1:NumVels, ...
+            app.Velocity(:,2) = interp1(1:numel(app.VelocityTransform.velocity_scale), ...
                                         app.VelocityTransform.velocity_scale, ...
                                         app.Velocity(:,2));
-            VelocityInterval  = range(app.VelocityTransform.velocity_scale(1:2));
-            app.Velocity(:,3) = app.Velocity(:,3) * VelocityInterval;
+            app.Velocity(:,3) = app.Velocity(:,3) * abs(app.VelocityTransform.velocity_scale(2)-app.VelocityTransform.velocity_scale(1));
             
             % Plotting the extracted velocity line
             hold(app.VelocityPlot,'on')
-            app.VelocityTransform.extracted_velocity_line = plot(app.VelocityPlot, ...
-                                                                 app.Velocity(:,1) * 1e6, ...
-                                                                 app.Velocity(:,2), ...
-                                                                 'Color','r','LineWidth',1);
+            app.VelocityTransform.extracted_velocity_line = plot(app.VelocityPlot,app.Velocity(:,1)*1e6,app.Velocity(:,2),'Color','r','LineWidth',1);
+            
             app.ReadyLamp.Color = 'g';
+            toc
         end
 
         % Button pushed function: ReturnCloseButton
@@ -721,8 +710,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.ZeroVelocityField.Value          = 0;
             
             % Recalculating velocity scale
-            app.VelocityTransform.velocity_scale = app.WavelengthField.Value * app.VelocityTransform.F / 2e9;
-            app.VelocityTransform.velocity_scale = app.VelocityTransform.velocity_scale - app.ZeroVelocityField.Value;
+            app.VelocityTransform.velocity_scale = 0.5*(1e-9 * app.WavelengthField.Value)*app.VelocityTransform.F-app.ZeroVelocityField.Value;
             
             % Replotting velocity spectrogram
             plot_vel_spectrogram(app,app.VelocityPlot)
@@ -763,16 +751,12 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                 app.Velocity(:,2) = app.Velocity(:,2) - app.ZeroVelocityField.Value;
                 
                 % Shifting velocity scale
-                app.VelocityTransform.velocity_scale = app.VelocityTransform.velocity_scale - ...
-                                                       app.ZeroVelocityField.Value;
+                app.VelocityTransform.velocity_scale = app.VelocityTransform.velocity_scale-app.ZeroVelocityField.Value;
                 
                 % Replotting the velocity spectrogram with corrected velocities.
                 plot_vel_spectrogram(app,app.VelocityPlot)
                 hold(app.VelocityPlot,'on')
-                plot(app.VelocityPlot,      ...
-                     app.Velocity(:,1)*1e6, ...
-                     app.Velocity(:,2),     ...
-                     "Color",'r','LineWidth',1)
+                plot(app.VelocityPlot,app.Velocity(:,1)*1e6,app.Velocity(:,2),"Color",'r','LineWidth',1)
             catch
                 % Incase user has not identified the offset prior to removing it.
                 IdentifyOffsetButtonPushed(app)
@@ -794,9 +778,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             
             % Try to plot onto CropPlot
             try
-                app.CropTransform.sample_end_line = xline(app.CropPlot, ...
-                                                          app.SampleEndTime.Value, ...
-                                                          'Color',app.SampleEndTimesLabel.FontColor);
+                app.CropTransform.sample_end_line = xline(app.CropPlot,app.SampleEndTime.Value,'Color',app.SampleEndTimesLabel.FontColor);
             catch
             end  
         end
@@ -813,9 +795,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             
             % Try to plot onto CropPlot
             try
-                app.CropTransform.breakout_start_line = xline(app.CropPlot, ...
-                                                              app.BreakoutStartTime.Value, ...
-                                                              'Color',app.BreakoutStartTimesEditFieldLabel.FontColor);    
+                app.CropTransform.breakout_start_line = xline(app.CropPlot,app.BreakoutStartTime.Value,'Color',app.BreakoutStartTimesEditFieldLabel.FontColor);    
             catch
             end
         end
@@ -885,7 +865,8 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                 app.ProcessedTransform = compute_spectrogram_baseline_removed(app,app.TransformProps);
                 plot_freq_spectrogram(app,app.ProcessedPlot,app.ProcessedTransform,'Processed Spectrogram')
             end
-            
+                
+           
             function power = GetA(V,T,W,A,MinFreq,MaxFreq)
                         % Recreating signal (terms to match Dolan paper)
                         signal = V - A(1)*cos(W*T) - A(2)*sin(W*T);
@@ -903,6 +884,13 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
 
         % Value changed function: StartTimeField
         function StartTimeFieldValueChanged(app, event)
+%             if isfield(app.Data,'t')
+%                 [~, Idx] = min(abs(app.Data.t - (app.StartTimeField.Value * 1e-6)));
+%                 app.StartTimeField.Value = app.Data.t(Idx) * 1e6;
+%             end
+            if isfield(app.Data,'t')
+                app.StartTimeField.Value = app.TransformProps.start_time * (1e6);
+            end
             
             if isfield(app.RawTransform,'start_time_line')
                 delete(app.RawTransform.start_time_line)
@@ -913,15 +901,20 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.start_time_line = xline(app.RawPlot, ...
-                                                         app.StartTimeField.Value, ...
-                                                         'Color','k');
+                app.RawTransform.start_time_line = xline(app.RawPlot,app.StartTimeField.Value,'Color','k');
             catch
             end
         end
 
         % Value changed function: EndTimeField
         function EndTimeFieldValueChanged(app, event)
+%             if isfield(app.Data,'t')
+%                 [~, Idx] = min(abs(app.Data.t - (app.EndTimeField.Value * 1e-6)));
+%                 app.EndTimeField.Value = app.Data.t(Idx) * 1e6;
+%             end
+            if isfield(app.Data,'t')
+                app.EndTimeField.Value = app.TransformProps.end_time * (1e6);
+            end
             
             if isfield(app.RawTransform,'end_time_line')
                 delete(app.RawTransform.end_time_line)
@@ -932,9 +925,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.end_time_line = xline(app.RawPlot, ...
-                                                       app.EndTimeField.Value, ...
-                                                       'Color','k');
+                app.RawTransform.end_time_line = xline(app.RawPlot,app.EndTimeField.Value,'Color','k');
             catch
             end
         end
@@ -950,9 +941,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.min_freq_line = yline(app.RawPlot, ...
-                                                       app.MinFrequencyField.Value, ...
-                                                       'Color','k');
+                app.RawTransform.min_freq_line = yline(app.RawPlot,app.MinFrequencyField.Value,'Color','k');
             catch
             end
         end
@@ -968,9 +957,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             
             % Try to plot onto RawPlot
             try
-                app.RawTransform.max_freq_line = yline(app.RawPlot, ...
-                                                       app.MaxFrequencyField.Value, ...
-                                                       'Color','k');
+                app.RawTransform.max_freq_line = yline(app.RawPlot,app.MaxFrequencyField.Value,'Color','k');
             catch
             end
         end
@@ -985,9 +972,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             % Try to plot onto VelocityPlot
             try
                 hold(app.VelocityPlot,'on')
-                app.VelocityTransform.start_time_line = xline(app.VelocityPlot, ...
-                                                              app.OffsetSampleStartTimeField.Value, ...
-                                                              'Color','k');
+                app.VelocityTransform.start_time_line = xline(app.VelocityPlot,app.OffsetSampleStartTimeField.Value,'Color','k');
             catch
             end
         end
@@ -1003,9 +988,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             
             % Try to plot onto VelocityPlot
             try
-                app.VelocityTransform.end_time_line = xline(app.VelocityPlot, ...
-                                                            app.OffsetSampleEndTimeField.Value, ...
-                                                            'Color','k');
+                app.VelocityTransform.end_time_line = xline(app.VelocityPlot,app.OffsetSampleEndTimeField.Value,'Color','k');
             catch
             end
         end
@@ -1015,12 +998,9 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.ReadyLamp.Color = 'r';
             drawnow
             
-            app.CheckDependency
             %Importing scope file
             try
-                RawData = ScopeTrace('Echo',false);
-                waveform = struct('time'   ,RawData.time, ...
-                                  'voltage',RawData.voltage);
+                waveform = ImportScope('Echo',false);
             catch
                 waveform = [];
             end
@@ -1173,7 +1153,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             end
             
             if AWPExist && NonZeroWindow && SampleRegionExist && app.Baseline.BasicRemoval
-                DeltaPhiText = char([8710,934]); % Matlab AppDesigner dislikes exporting greek characters, so export and encode as text at runtime
+            
                 A = app.Baseline.A;
                 W = app.Baseline.W;
                 P = app.Baseline.P;
@@ -1195,9 +1175,9 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                 PredDeltaPhi        = abs(DeltaPhiFit(MaxIdx) - DeltaPhiFit(MinIdx));
                 if PredDeltaPhi > (pi/2) || PredDeltaPhi < (pi/8)
                     Fs = abs(app.Data.t(2)-app.Data.t(1))*(1e6);
-                    PlotTitle = [DeltaPhiText,' Across Window (Recommended Size: ',num2str(Fs*round(WindowSize * ((pi/4)/PredDeltaPhi))),' Âµs)'];
+                    PlotTitle = ['ÿÿ Across Window (Recommended Size: ',num2str(Fs*round(WindowSize * ((pi/4)/PredDeltaPhi))),' µs)'];
                 else
-                    PlotTitle = [DeltaPhiText,' Across Window (Window Size OK)'];
+                    PlotTitle = 'ÿÿ Across Window (Window Size OK)';
                 end
                 
                 WindowSizeFig = figure(1);
@@ -1206,8 +1186,8 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
                 hold(WindowSizeAx,'on')
                 
                 title(WindowSizeAx,PlotTitle)
-                xlabel(WindowSizeAx,'Time [Âµs]')
-                ylabel(WindowSizeAx,[DeltaPhiText,' [Rad.]'])
+                xlabel(WindowSizeAx,'Time [µs]')
+                ylabel(WindowSizeAx,'ÿÿ [Rad.]')
                 
                 plot(WindowSizeAx,...
                      app.Data.t(Steps)*(1e6),...
@@ -1395,11 +1375,24 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
 
             % Create PdvAnalysisFigure and hide until all components are created
             app.PdvAnalysisFigure = uifigure('Visible', 'off');
-            app.PdvAnalysisFigure.AutoResizeChildren = 'off';
             app.PdvAnalysisFigure.Position = [0 0 1120 640];
-            app.PdvAnalysisFigure.Resize = 'off';
+            app.PdvAnalysisFigure.Name = 'PDVAnalysis \L';
             app.PdvAnalysisFigure.CloseRequestFcn = createCallbackFcn(app, @PdvAnalysisCloseRequest, true);
             app.PdvAnalysisFigure.Scrollable = 'on';
+
+            % Create RawPlot
+            app.RawPlot = uiaxes(app.PdvAnalysisFigure);
+            title(app.RawPlot, 'Raw Spectrogram')
+            xlabel(app.RawPlot, 'Time [us]')
+            ylabel(app.RawPlot, 'Frequency [GHz]')
+            app.RawPlot.PlotBoxAspectRatio = [1.01917808219178 1 1];
+            app.RawPlot.FontSize = 10;
+            app.RawPlot.TickLabelInterpreter = 'none';
+            app.RawPlot.Box = 'on';
+            app.RawPlot.BoxStyle = 'full';
+            app.RawPlot.LineWidth = 1;
+            app.RawPlot.NextPlot = 'replace';
+            app.RawPlot.Position = [241 321 310 310];
 
             % Create CropPlot
             app.CropPlot = uiaxes(app.PdvAnalysisFigure);
@@ -1407,13 +1400,13 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             xlabel(app.CropPlot, 'Time [us]')
             ylabel(app.CropPlot, 'Frequency [GHz]')
             app.CropPlot.PlotBoxAspectRatio = [1.02191780821918 1 1];
-            app.CropPlot.TickLabelInterpreter = 'none';
-            app.CropPlot.YAxisLocation = 'right';
-            app.CropPlot.BoxStyle = 'full';
-            app.CropPlot.LineWidth = 1;
             app.CropPlot.FontSize = 10;
-            app.CropPlot.NextPlot = 'replace';
+            app.CropPlot.TickLabelInterpreter = 'none';
             app.CropPlot.Box = 'on';
+            app.CropPlot.BoxStyle = 'full';
+            app.CropPlot.YAxisLocation = 'right';
+            app.CropPlot.LineWidth = 1;
+            app.CropPlot.NextPlot = 'replace';
             app.CropPlot.Position = [551 321 310 310];
 
             % Create ProcessedPlot
@@ -1422,13 +1415,12 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             xlabel(app.ProcessedPlot, 'Time [us]')
             ylabel(app.ProcessedPlot, 'Frequency [GHz]')
             app.ProcessedPlot.PlotBoxAspectRatio = [1.02191780821918 1 1];
+            app.ProcessedPlot.FontSize = 10;
             app.ProcessedPlot.TickLabelInterpreter = 'none';
+            app.ProcessedPlot.Box = 'on';
             app.ProcessedPlot.BoxStyle = 'full';
             app.ProcessedPlot.LineWidth = 1;
-            app.ProcessedPlot.FontSize = 10;
             app.ProcessedPlot.NextPlot = 'replace';
-            app.ProcessedPlot.Box = 'on';
-            app.ProcessedPlot.HitTest = 'off';
             app.ProcessedPlot.Position = [241 11 310 310];
 
             % Create VelocityPlot
@@ -1437,30 +1429,14 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             xlabel(app.VelocityPlot, 'Time [us]')
             ylabel(app.VelocityPlot, 'Velocity [m/s]')
             app.VelocityPlot.PlotBoxAspectRatio = [1.02191780821918 1 1];
-            app.VelocityPlot.TickLabelInterpreter = 'none';
-            app.VelocityPlot.YAxisLocation = 'right';
-            app.VelocityPlot.BoxStyle = 'full';
-            app.VelocityPlot.LineWidth = 1;
             app.VelocityPlot.FontSize = 10;
-            app.VelocityPlot.NextPlot = 'replace';
+            app.VelocityPlot.TickLabelInterpreter = 'none';
             app.VelocityPlot.Box = 'on';
+            app.VelocityPlot.BoxStyle = 'full';
+            app.VelocityPlot.YAxisLocation = 'right';
+            app.VelocityPlot.LineWidth = 1;
+            app.VelocityPlot.NextPlot = 'replace';
             app.VelocityPlot.Position = [551 11 310 310];
-
-            % Create RawPlot
-            app.RawPlot = uiaxes(app.PdvAnalysisFigure);
-            title(app.RawPlot, 'Raw Spectrogram')
-            xlabel(app.RawPlot, 'Time [us]')
-            ylabel(app.RawPlot, 'Frequency [GHz]')
-            app.RawPlot.PlotBoxAspectRatio = [1.02191780821918 1 1];
-            app.RawPlot.TickLabelInterpreter = 'none';
-            app.RawPlot.BoxStyle = 'full';
-            app.RawPlot.LineWidth = 1;
-            app.RawPlot.FontSize = 10;
-            app.RawPlot.NextPlot = 'replace';
-            app.RawPlot.Box = 'on';
-            app.RawPlot.Interruptible = 'off';
-            app.RawPlot.HitTest = 'off';
-            app.RawPlot.Position = [241 321 310 310];
 
             % Create CropSpectrogramButton
             app.CropSpectrogramButton = uibutton(app.PdvAnalysisFigure, 'push');
@@ -1593,7 +1569,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.StartTimesEditFieldLabel_2.HorizontalAlignment = 'right';
             app.StartTimesEditFieldLabel_2.FontSize = 10;
             app.StartTimesEditFieldLabel_2.Position = [1 371 120 20];
-            app.StartTimesEditFieldLabel_2.Text = 'Start Time (Âµs)';
+            app.StartTimesEditFieldLabel_2.Text = 'Start Time (µs)';
 
             % Create StartTimeField
             app.StartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1606,7 +1582,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.EndTimesEditFieldLabel_2.HorizontalAlignment = 'right';
             app.EndTimesEditFieldLabel_2.FontSize = 10;
             app.EndTimesEditFieldLabel_2.Position = [1 341 120 20];
-            app.EndTimesEditFieldLabel_2.Text = 'End Time (Âµs)';
+            app.EndTimesEditFieldLabel_2.Text = 'End Time (µs)';
 
             % Create EndTimeField
             app.EndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1690,7 +1666,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.BreakoutStartTimesEditFieldLabel = uilabel(app.PdvAnalysisFigure);
             app.BreakoutStartTimesEditFieldLabel.FontSize = 10;
             app.BreakoutStartTimesEditFieldLabel.Position = [981 611 140 20];
-            app.BreakoutStartTimesEditFieldLabel.Text = 'Breakout Start Time (Âµs)';
+            app.BreakoutStartTimesEditFieldLabel.Text = 'Breakout Start Time (µs)';
 
             % Create BreakoutStartTime
             app.BreakoutStartTime = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1703,7 +1679,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.SampleEndTimesLabel.FontSize = 10;
             app.SampleEndTimesLabel.FontColor = [0.851 0.3255 0.098];
             app.SampleEndTimesLabel.Position = [981 549 140 22];
-            app.SampleEndTimesLabel.Text = 'Sample End Time (Âµs)';
+            app.SampleEndTimesLabel.Text = 'Sample End Time (µs)';
 
             % Create SampleEndTime
             app.SampleEndTime = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1717,7 +1693,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.WindowSizesLabel.FontSize = 10;
             app.WindowSizesLabel.FontColor = [0.4941 0.1843 0.5569];
             app.WindowSizesLabel.Position = [981 459 140 22];
-            app.WindowSizesLabel.Text = 'âˆ†Î¦ Window Size (Âµs)';
+            app.WindowSizesLabel.Text = 'ÿÿ Window Size (µs)';
 
             % Create DeltaPhiWindowSize
             app.DeltaPhiWindowSize = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1743,7 +1719,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.OffsetSampleStartTimesLabel = uilabel(app.PdvAnalysisFigure);
             app.OffsetSampleStartTimesLabel.FontSize = 10;
             app.OffsetSampleStartTimesLabel.Position = [981 235 140 20];
-            app.OffsetSampleStartTimesLabel.Text = 'Offset Sample Start Time (Âµs)';
+            app.OffsetSampleStartTimesLabel.Text = 'Offset Sample Start Time (µs)';
 
             % Create OffsetSampleStartTimeField
             app.OffsetSampleStartTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1754,7 +1730,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.OffsetSampleEndTimesLabel = uilabel(app.PdvAnalysisFigure);
             app.OffsetSampleEndTimesLabel.FontSize = 10;
             app.OffsetSampleEndTimesLabel.Position = [981 206 140 20];
-            app.OffsetSampleEndTimesLabel.Text = 'Offset Sample End Time (Âµs)';
+            app.OffsetSampleEndTimesLabel.Text = 'Offset Sample End Time (µs)';
 
             % Create OffsetSampleEndTimeField
             app.OffsetSampleEndTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1839,14 +1815,14 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.CheckDeltaPhiButton.ButtonPushedFcn = createCallbackFcn(app, @CheckDeltaPhiButtonPushed, true);
             app.CheckDeltaPhiButton.FontSize = 10;
             app.CheckDeltaPhiButton.Position = [871 429 120 22];
-            app.CheckDeltaPhiButton.Text = 'Check âˆ†Î¦ Window';
+            app.CheckDeltaPhiButton.Text = 'Check ÿÿ Window';
 
             % Create ApplyDeltaPhiButton
             app.ApplyDeltaPhiButton = uibutton(app.PdvAnalysisFigure, 'push');
             app.ApplyDeltaPhiButton.ButtonPushedFcn = createCallbackFcn(app, @ApplyDeltaPhiButtonPushed, true);
             app.ApplyDeltaPhiButton.FontSize = 10;
             app.ApplyDeltaPhiButton.Position = [871 399 120 22];
-            app.ApplyDeltaPhiButton.Text = 'Apply âˆ†Î¦ Correction';
+            app.ApplyDeltaPhiButton.Text = 'Apply ÿÿ Correction';
 
             % Create CancelBaselineButton
             app.CancelBaselineButton = uibutton(app.PdvAnalysisFigure, 'push');
@@ -1867,7 +1843,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.SampleStartTimesLabel.FontSize = 10;
             app.SampleStartTimesLabel.FontColor = [0.851 0.3255 0.098];
             app.SampleStartTimesLabel.Position = [981 579 140 22];
-            app.SampleStartTimesLabel.Text = 'Sample Start Time (Âµs)';
+            app.SampleStartTimesLabel.Text = 'Sample Start Time (µs)';
 
             % Create SampleStartTime
             app.SampleStartTime = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1930,7 +1906,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
             app.ZeroTimesLabel.FontSize = 10;
             app.ZeroTimesLabel.FontColor = [0 0.4471 0.7412];
             app.ZeroTimesLabel.Position = [981 519 140 22];
-            app.ZeroTimesLabel.Text = 'Zero Î¦ Time (Âµs)';
+            app.ZeroTimesLabel.Text = 'Zero ÿ Time (µs)';
 
             % Create ZeroPhiTimeField
             app.ZeroPhiTimeField = uieditfield(app.PdvAnalysisFigure, 'numeric');
@@ -1948,7 +1924,7 @@ classdef PdvAnalysis3 < matlab.apps.AppBase
     methods (Access = public)
 
         % Construct app
-        function app = PdvAnalysis3(varargin)
+        function app = PdvAnalysis(varargin)
 
             % Create UIFigure and components
             createComponents(app)
