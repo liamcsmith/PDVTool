@@ -1,28 +1,67 @@
+# PDVTrace
+## Summary
+An object for containing everything about a PDV trace. It will manage raw data storage (using ScopeTrace dependency), analysis via its interface with the bundled PDVAnalysis GUI (including analysis parameter storage, and analysis updating from prior analyses) and cable delay inputs.
+
+## Dependencies
+**ScopeTrace.m** - You can find this in a different repository on my profile.
+
+## Installation
+To have PDVTrace work correctly you will need to:
+1) Edit the path on Line 24 of PDVTrace.m to give a suitable path to ScopeTrace.m, if you do not do this the PDVTrace object will not be able to read in data from the raw oscilloscope file!
+2) edit the path on Line 92 of PDVAnalysis.m to give a suitable path to ScopeTrace.m, if you do not do this the GUI will not be able to read in data from raw data passed in via "Trace", nor will it be able to import raw data if launched without raw data input arguments!
+
+## InputArgs
+(all passed as Name-Value pairs, all optional [^1])
+[^1]: If you do not pass a FilePath then the object will use ScopeTrace to launch a file explorer to select and import a raw oscilloscope trace.
+
+| Name          	| DataType      | Default      	| Description   											|
+| ------------- 	| ------------- | -------------	| ------------- 											|
+| "FilePath"    	| string        | N/A          	| Absolute or relative file path to a raw oscilloscope file. This will be imported using ScopeTrace 	|
+| "AnalysisParameters" 	| struct[^3] 	| N/A        	| The analysis parameter struct that is outputted from the PDVAnalysis GUI. 				|
+| "Delay" 		| numeric 	| 0.0 		| The cable delay asscoiated with this trace (including fiber & PDV channel delays) given in seconds. 	|
+| "Title" 		| string 	| 'Generic' 	| A title for the associated PDV Trace, passed to PDVAnalysis GUI for its UIFigure title 		|
+| "ProbeWavelengthNM" 	| numeric 	| 1550[^4] 	| The wavelength (in nm) of the probe laser.								|
+[^3]: I wouldn't worry about this field too much, PDV Trace will save the analysis parameters in a cache alongside the raw data file and then automatically repopulate this when you pass it a raw data file (that has an associated analysis cache file.
+[^4]: This sets the velocity scale and its important you get it correct (so note down when doing experiments). The default is set at 1550 (which I use always so as to avoid issues if i forget it).
+
+
 # PdvAnalysis
-A tool for analysing photon doppler velocimetry data with MATLAB.
-Can be run without inputs by simply running the PdvAnalysis.m function or using the following syntax options
+## Summary
+An extensive GUI tool for analysing photon doppler velocimetry data within MATLAB. It is highly recommended that you use this app as a tool within the above PDVTrace object. PDVTrace is designed to manage the data that PDVAnalysis produces, allowing the user to complete,save,revisit, and summarise analyses all whilst effectively minimised memory allocation. Should you specifically wise to use PDVAnalysis outside of this wrapper please see below.
 
-% Importing data from within the app: PdvAnalysis()
+## Dependencies
+**ScopeTrace.m**: You can find this in a different repository on my profile.
 
-% Basic Route of passing inputs: PdvAnalysis('Time',obj_1Darray,'Voltage',obj_1Darray)
+## Installation
+To have PDVAnalysis work correctly you will need to edit the path on Line 92 to give a suitable path to ScopeTrace.m, if you do not do this the GUI will not be able to read in data from raw data passed in via "Trace", nor will it be able to import raw data if launched without raw data input arguments!  
 
-% Passing in ScopeTrace output cleanly: PdvAnalysis('Trace',obj_importscopeoutput)
+## InputArgs
+(all passed as Name-Value pairs, all optional [^2])
+[^2]: If you do not pass a Trace or both Time & Voltage arguments then the GUI will use ScopeTrace to launch a file explorer to select and import a raw oscilloscope trace.
 
-% For identifying what trace you're working on: PdvAnalysis('Title',obj_string)
-
-% Variable will created from previous analysis. Can be used to re enter a previous analysis: PdvAnalysis('Parameters',obj_parametervariable)  		
-							  
-% Fully programmatic analysis of supplied data with supplied parameters: PdvAnalysis('Automate',obj_logical) 			
-							  
-If you want to run this within a function please insert the following nested function inside your function or script then see the included examples or speak to me.
-
+| Name          	| DataType      | Default       | Description   											|
+| ------------- 	| ------------- | ------------- | ------------- 											|
+| "Time"   		| numeric array | []   		| A 1D array with time values for the PDV trace being analysed. 					|
+| "Voltage"     	| numeric array	| [] 		| A 1D array with photodiode voltage values for the PDV trace being analysed. 				|
+| "ProbeWavelengthNM" 	| numeric 	| 1550[^4] 	| The wavelength (in nm) of the probe laser. 								|
+| "Trace"		| ScopeTrace	| N/A 		| An outputted ScopeTrace object from ScopeTrace.m[^5] 							|
+| "Parameters"  	| struct 	| N/A 		| This is the analysis parameter struct that is outputted from the PDVAnalysis GUI.[^6] 		|
+| "Automate"		| logical 	| false		| If true the GUI analyses the raw data with the associated parameters[^7] 				|
+| "Title"		| string	| 'Generic" 	| A title for the associated PDV Trace, this will be used as the UIFigure title 			|
+| "ParentApp" 		|function_handle| N/A 		| **Warning ADVANCED** This input allows you to attach the GUI to a different app or function [^8]	| 
+[^5]: This object contains a property inside the object that will be used to provide Time/Voltage pairs.
+[^6]: I wouldn't worry about this field too much, its primarily used by PDVTrace to re-enter analyses using cached data alongside the raw data file.
+[^7]: This is very handy for reanalysing data (where you saved the prior analysis struct). PDVTrace.Analyse uses this flag when it already has got analysis parameters, allowing you to see the prior analysis before re-analysing.
+[^8]: Upon pressing Return&Close after successfully analysing data PDVAnalysis uses this function handle to interface with the parent and seamlessly pass outputs from the GUI into the parent workspace. There are example interfaces included in the repo, but beware this is quite a tricky process to implement well!
 
 # Legacy Tools
-**PDV_TOOL_v2020**
+## PDV_TOOL_v2020
+### Summary
 A legacy tool for analysing photon doppler velocimetry data with MATLAB.
 Can be run without inputs by simply running the PDV_TOOL.m function or using the following syntax
 PDV_TOOL(t,v)
 Where t & v are timeseries column vectors represtenting time and voltage of the photodiode output.
 
-**PDV_Analysis_Legacy**
+## PDV_Analysis_Legacy
+### Summary
 The prior version of PDVAnalysis, this one is ~4x slower at extracting velocities (although it arguably has slightly better error calculation on velocity fits). It also has a dependency on ImportScope rather than ScopeTrace (the latter being much faster for alomost every filetype).
