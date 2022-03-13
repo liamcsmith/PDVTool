@@ -1,4 +1,27 @@
 classdef PdvTrace
+%%%  An object for containing everything about a PDV trace. It will manage raw data storage (using ScopeTrace dependency), analysis via its interface with the bundled PDVAnalysis GUI (including analysis parameter storage, and analysis updating from prior analyses) and cable delay inputs.
+% 
+% ## Dependencies
+% **ScopeTrace.m** - You can find this in a different repository on my profile.
+% 
+% ## Installation
+% To have PDVTrace work correctly you will need to:
+% 1) Edit the path on Line 24 of PDVTrace.m to give a suitable path to ScopeTrace.m, if you do not do this the PDVTrace object will not be able to read in data from the raw oscilloscope file!
+% 2) edit the path on Line 92 of PDVAnalysis.m to give a suitable path to ScopeTrace.m, if you do not do this the GUI will not be able to read in data from raw data passed in via "Trace", nor will it be able to import raw data if launched without raw data input arguments!
+% 
+% ## InputArgs
+% (all passed as Name-Value pairs, all optional [^1])
+% [^1]: If you do not pass a FilePath then the object will use ScopeTrace to launch a file explorer to select and import a raw oscilloscope trace.
+% 
+% | Name          	| DataType      | Default      	| Description   											|
+% | ------------- 	| ------------- | -------------	| ------------- 											|
+% | "FilePath"    	| string        | N/A          	| Absolute or relative file path to a raw oscilloscope file. This will be imported using ScopeTrace 	|
+% | "AnalysisParameters" 	| struct[^3] 	| N/A        	| The analysis parameter struct that is outputted from the PDVAnalysis GUI. 				|
+% | "Delay" 		| numeric 	| 0.0 		| The cable delay asscoiated with this trace (including fiber & PDV channel delays) given in seconds. 	|
+% | "Title" 		| string 	| 'Generic' 	| A title for the associated PDV Trace, passed to PDVAnalysis GUI for its UIFigure title 		|
+% | "ProbeWavelengthNM" 	| numeric 	| 1550[^4] 	| The wavelength (in nm) of the probe laser.								|
+% [^3]: I wouldn't worry about this field too much, PDV Trace will save the analysis parameters in a cache alongside the raw data file and then automatically repopulate this when you pass it a raw data file (that has an associated analysis cache file.
+% [^4]: This sets the velocity scale and its important you get it correct (so note down when doing experiments). The default is set at 1550 (which I use always so as to avoid issues if i forget it).
     properties
         RawTrace
         Title
