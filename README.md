@@ -69,10 +69,10 @@ To have `PDVAnalysis` work correctly you will need to:
 | `"Time"`              | numeric array     | []        | A 1D array with time values for the PDV trace being analysed.                                     |
 | `"Voltage"`           | numeric array     | []        | A 1D array with photodiode voltage values for the PDV trace being analysed.                       |
 | `"ProbeWavelengthNM"` | numeric           | 1550[^4]  | The wavelength (in nm) of the probe lasers.                                                       |
-| `"Parameters"`        | struct            | N/A       | This is the analysis parameter struct that is outputted from the PDVAnalysis GUI.[^6]             |
+| `"Parameters"`        | struct            | []        | This is the analysis parameter struct that is outputted from the PDVAnalysis GUI.[^6]             |
 | `"Automate"`          | logical           | false     | If true the GUI analyses the raw data with the associated parameters[^7]                          |
 | `"Title"`             | string            | 'Generic" | A title for the associated PDV Trace, this will be used as the UIFigure title                     |
-| `"ParentApp"`         | function_handle   | N/A       | **Warning ADVANCED** This input allows you to attach the GUI to a different app or function [^8]  
+| `"ParentApp"`         | function_handle   | []        | **Warning ADVANCED** This input allows you to attach the GUI to a different app or function [^8]  
 
 [^5]: This object contains a property inside the object that will be used to provide Time/Voltage pairs.
 [^6]: I wouldn't worry about this field too much, its primarily used by `PDVTrace` to re-enter analyses using cached data alongside the raw data file.

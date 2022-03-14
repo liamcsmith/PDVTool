@@ -65,11 +65,11 @@ classdef PdvTrace
         ScopeTracePath {mustBeFolder} = '~/Documents/GitHub/ImportScope'  %%ScopeTracePath%%
     end
     properties (Dependent)
-        % Column vector containing time values for the analysed PDV trace.
+        % Time - Column vector containing time values for the analysed PDV trace.
         Time {mustBeNumeric}
-        % Column vector containing velocity values for the analysed PDV trace.
+        % Velocity - Column vector containing velocity values for the analysed PDV trace.
         Velocity {mustBeNumeric}
-        % Column vector containing velocity error values for the analysed PDV trace.
+        % Error - Column vector containing velocity error values for the analysed PDV trace.
         Error {mustBeNumeric}
     end
     properties (Dependent,Access=private)
@@ -327,6 +327,8 @@ classdef PdvTrace
         function              CheckDependency(  obj)
             if ~exist('ScopeTrace','file')
                 addpath(obj.ScopeTracePath);
+            else
+                disp('CANNOT FIND SCOPE TRACE')
             end
         end
     end
