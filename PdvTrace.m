@@ -52,15 +52,15 @@ classdef PdvTrace
         % RawTrace - This handles the raw data storage of the oscilloscope file. Including storage of any metadata and the ability to plot the raw data quickly.
         RawTrace ScopeTrace
         % Title - A title for the associated PDV Trace, passed to the PdvAnalysis GUI for its UIFigure title when using the Analyse() method.
-        Title {mustBeText}
+        Title {mustBeText} = 'GenericPDVTrace'
         % AnalysisParameters - The analysis parameter struct that is outputted from the PDVAnalysis GUI upon a successful analysis.
-        AnalysisParameters struct
+        AnalysisParameters
         % Delay - The cable delay asscoiated with this trace (including fiber & PDV channel delays) given in seconds.
-        Delay {mustBeNumeric}
+        Delay
         % ProcessedTrace - This struct contains the results of a succesful PdvAnalysis. 
-        ProcessedTrace struct
+        ProcessedTrace
         % ProbeWavelengthNM - The wavelength (in nm) of the probe laser.
-        ProbeWavelengthNM {mustBeNumeric}
+        ProbeWavelengthNM {mustBeNumeric} = 1550E-9
         % ScopeTracePath - A valid path to a folder containing ScopeTrace, this must be correctly set for the script to work. If you set the default in the .m file it does not need setting each time.
         ScopeTracePath {mustBeFolder} = '~/Documents/GitHub/ImportScope'  %%ScopeTracePath%%
     end
@@ -327,8 +327,6 @@ classdef PdvTrace
         function              CheckDependency(  obj)
             if ~exist('ScopeTrace','file')
                 addpath(obj.ScopeTracePath);
-            else
-                disp('CANNOT FIND SCOPE TRACE')
             end
         end
     end
