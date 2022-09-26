@@ -62,7 +62,7 @@ classdef PdvTrace
         % ProbeWavelengthNM - The wavelength (in nm) of the probe laser.
         ProbeWavelengthNM {mustBeNumeric} = 1550E-9
         % ScopeTracePath - A valid path to a folder containing ScopeTrace, this must be correctly set for the script to work. If you set the default in the .m file it does not need setting each time.
-        ScopeTracePath {mustBeFolder} = '~/Documents/GitHub/ImportScope'  %%ScopeTracePath%%
+        ScopeTracePath {mustBeFolder} = '/Users/liamsmith/Documents/GitHub/ImportScope'  %%ScopeTracePath%%
     end
     properties (Dependent)
         % Time - Column vector containing time values for the analysed PDV trace.
@@ -218,6 +218,53 @@ classdef PdvTrace
             end
             clearvars ChildApp
             
+            function ParentFunctionPullOutputs(Outputs)
+                if exist('Outputs','var')
+                    ChildApp.Outputs = Outputs;
+                end
+            end
+        end
+        function [obj, AppHandle] = AnalyseAdvanced(obj)
+            %Analyse Run analysis on stored data using PDVAnalysis GUI with full App CLI acess.
+            %cke
+            % When using this method if you want to store the analysis
+            % within scope trace you should click Return&Close when you've
+            % finished with the GUI and are happy with the trace. Note that
+            % if a ProcessedTrace already exists within the object it will
+            % use the parameters from this trace as the starting state of
+            % the GUI.
+            %
+            % INPUT   obj - The object.
+            % 
+            % OUTPUT  obj - The object, with an updated ProcessedData 
+            %               and AnalysisParameter properties.
+            %         app - A handle to the app
+            %
+            obj.CheckDependency
+            ParentFunctionInterfacingHandle = @ParentFunctionPullOutputs;
+            if isstruct(obj.AnalysisParameters)
+                if isstruct(obj.ProcessedTrace)
+                    ChildApp.Handle = PdvAnalysis('ParentApp'           , ParentFunctionInterfacingHandle, ...
+                                                  'Trace'               , obj.RawTrace, ...
+                                                  'ProbeWavelengthNM'   , obj.ProbeWavelengthNM, ...
+                                                  'Title'               , obj.Title, ...
+                                                  'Parameters'          , obj.AnalysisParameters);
+                else
+                    ChildApp.Handle = PdvAnalysis('ParentApp'           , ParentFunctionInterfacingHandle, ...
+                                                   'Trace'               , obj.RawTrace, ...
+                                                   'ProbeWavelengthNM'   , obj.ProbeWavelengthNM, ...
+                                                   'Title'               , obj.Title, ...
+                                                   'Parameters'          , obj.AnalysisParameters, ...
+                                                   'Automate'            , true);
+                    
+                end
+            else
+                    ChildApp.Handle = PdvAnalysis('ParentApp'               , ParentFunctionInterfacingHandle, ...
+                                                   'Trace'                   , obj.RawTrace, ...
+                                                   'ProbeWavelengthNM'       , obj.ProbeWavelengthNM, ...
+                                                   'Title'                   , obj.Title);
+            end
+            AppHandle = ChildApp.Handle;
             function ParentFunctionPullOutputs(Outputs)
                 if exist('Outputs','var')
                     ChildApp.Outputs = Outputs;

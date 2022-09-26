@@ -83,7 +83,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
     end
 
     
-    properties (Access = private)
+    properties (Access = public)
         Data                    % Storage for time and voltage arrays, as well as a few trace dependat characteristics (fs and f0)
         RawTransform            % The raw transform and lines located on the raw transform plot
         CropTransform           % The crop transform and lines located on the crop transform plot
@@ -95,9 +95,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
         Baseline                = struct('BasicRemoval',false,'DeltaPhiCorrection',false) % A struct containing information about potential baseline removal settings.
     end
     properties (Access=public)
-        ScopeTracePath          = '~/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. $$ScopeTracePath$$
+        ScopeTracePath          = 'Users/liamsmith/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. $$ScopeTracePath$$
     end
-    properties (Dependent, Access = private)
+    properties (Dependent, Access = public)
         RawProps
         TransformProps
         Outputs
@@ -1065,7 +1065,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     Filename = 'VelocityPlot';
             end
             
-            [Filename,Pathname] = uiputfile({'*.eps';'*.pdf';'*.tiff'}, ...
+            [Filename,Pathname] = uiputfile({'*.eps';'*.pdf';'*.tiff';'*.mat'}, ...
                                             'Select Save Location', ...
                                             Filename);
             
@@ -1083,6 +1083,8 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     exportgraphics(obj,fullfile(Pathname,Filename),'ContentType',"vector")
                 elseif contains(Filename,'tiff')
                     exportgraphics(obj,fullfile(Pathname,Filename),'Resolution',300)
+                elseif contains(Filename,'.mat')
+                    keyboard
                 else
                     exportgraphics(obj,fullfile(Pathname,Filename))
                 end
