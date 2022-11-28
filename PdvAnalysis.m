@@ -95,7 +95,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
         Baseline                = struct('BasicRemoval',false,'DeltaPhiCorrection',false) % A struct containing information about potential baseline removal settings.
     end
     properties (Access=public)
-        ScopeTracePath          = 'Users/liamsmith/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. $$ScopeTracePath$$
+        ScopeTracePath          = '/Users/liamsmith/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. %%ScopeTracePath%%
     end
     properties (Dependent, Access = public)
         RawProps
@@ -1219,6 +1219,10 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 plot(WindowSizeAx,...
                      app.Data.t(Steps)*(1e6),...
                      DeltaPhiFit(Steps))
+                app.Baseline.DeltaPhiCheck = struct("Time", app.Data.t(Steps), ...
+                                                    "DeltaPhi", DeltaPhi, ...
+                                                    "FitVals", DeltaPhiFit(Steps), ...
+                                                    "Fit", DeltaPhiFit);
             end
             
             app.ReadyLamp.Color = 'g';
@@ -1257,11 +1261,14 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     DeltaPhi(i)    = FindDeltaPhi(app,A,W,P,Steps(i)+Idx);
                 end
                 DeltaPhi      = app.CleanPhase(DeltaPhi);
+                app.Baseline.DeltaPhiTraceNonInterp = struct("Time", app.Data.t(Steps), ...
+                                                             "DeltaPhi", DeltaPhi);
                 DeltaPhiInterp = interp1(app.Data.t(Steps),...
                                          DeltaPhi,...
                                          app.Data.t,...
                                          'linear');
-                
+                app.Baseline.DeltaPhiTraceInterp = struct("Time", app.Data.t, ...
+                                                          "DeltaPhi", DeltaPhiInterp);
                 % Pre Phi0 DeltaPhi prediction via extrapolation of
                 % samples within DeltaPhiWindowSize from Phi0
                 [~,MinIdx] = min(abs(app.Data.t - ((app.ZeroPhiTimeField.Value)/1e6)));
@@ -1274,11 +1281,16 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     DeltaPhi(i) = FindDeltaPhi(app,A,W,P,Steps(i):Steps(i+1));
                 end
                 Steps      = round(movmean(Steps,2,'Endpoints','discard'));
-                PhiFit     = fit(app.Data.t(Steps),app.CleanPhase(DeltaPhi),'poly1');                     
                 
+                PhiFit     = fit(app.Data.t(Steps),app.CleanPhase(DeltaPhi),'poly1');                     
+                app.Baseline.DeltaPhiPreExtrapFit = struct("Time", app.Data.t(Steps), ...
+                                                           "DeltaPhi", DeltaPhi, ...
+                                                           "Fit", PhiFit);
                 % Merging Pre & Post Phi0 Data
                 DeltaPhiInterp(isnan(DeltaPhiInterp)) = PhiFit(app.Data.t(isnan(DeltaPhiInterp)));
                 DeltaPhi   = DeltaPhiInterp;
+                app.Baseline.DeltaPhiFull = struct("Time", app.Data.t, ...
+                                                   "DeltaPhi", DeltaPhi);
                 
                 %Output
                 app.Data.v_baseline_removed = app.Data.v - A*cos((W*app.Data.t)+P+DeltaPhi);
