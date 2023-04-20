@@ -83,7 +83,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
     end
 
     
-    properties (Access = public)
+    properties (Access = private)
         Data                    % Storage for time and voltage arrays, as well as a few trace dependat characteristics (fs and f0)
         RawTransform            % The raw transform and lines located on the raw transform plot
         CropTransform           % The crop transform and lines located on the crop transform plot
@@ -95,9 +95,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
         Baseline                = struct('BasicRemoval',false,'DeltaPhiCorrection',false) % A struct containing information about potential baseline removal settings.
     end
     properties (Access=public)
-        ScopeTracePath          = '/Users/liamsmith/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. %%ScopeTracePath%%
+        ScopeTracePath          char {mustBeFolder} = '/Users/liamsmith/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. $$ScopeTracePath$$
     end
-    properties (Dependent, Access = public)
+    properties (Dependent, Access = private)
         RawProps
         TransformProps
         Outputs
@@ -413,7 +413,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
         function             CheckDependency(app)
             if ~exist('ScopeTrace','file')
                 addpath(app.ScopeTracePath);
-            else
+            end
+
+            if ~exist('ScopeTrace','file') == 2 
                 disp('ISSUE WITH ACCESSING SCOPETRACE, see installation section of readme or function help.')
             end
         end
@@ -1065,7 +1067,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     Filename = 'VelocityPlot';
             end
             
-            [Filename,Pathname] = uiputfile({'*.eps';'*.pdf';'*.tiff';'*.mat'}, ...
+            [Filename,Pathname] = uiputfile({'*.eps';'*.svg';'*.pdf';'*.tiff'}, ...
                                             'Select Save Location', ...
                                             Filename);
             
@@ -1077,14 +1079,20 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
                                         
             if ischar(Pathname)
-                if contains(Filename,'.eps')
+                if endsWith(Filename,'.eps')
                     exportgraphics(obj,fullfile(Pathname,Filename))
-                elseif contains(Filename,'.pdf')
+                elseif endsWith(Filename,'.pdf')
                     exportgraphics(obj,fullfile(Pathname,Filename),'ContentType',"vector")
-                elseif contains(Filename,'tiff')
+                elseif endsWith(Filename,'.svg')
+                    newfigure = figure("MenuBar","none","Units","pixels","Position",[0,0,1000,1000]);
+                    copyobj(obj, newfigure);
+                    newfigure.Children
+                    newfigure.Children.Units = "normalized";
+                    newfigure.Children.Position = [0.025,0.025,0.95,0.95];
+                    saveas(newfigure,fullfile(Pathname,Filename))
+                    close(newfigure)
+                elseif endsWith(Filename,'tiff')
                     exportgraphics(obj,fullfile(Pathname,Filename),'Resolution',300)
-                elseif contains(Filename,'.mat')
-                    keyboard
                 else
                     exportgraphics(obj,fullfile(Pathname,Filename))
                 end
@@ -1219,10 +1227,6 @@ classdef PdvAnalysis < matlab.apps.AppBase
                 plot(WindowSizeAx,...
                      app.Data.t(Steps)*(1e6),...
                      DeltaPhiFit(Steps))
-                app.Baseline.DeltaPhiCheck = struct("Time", app.Data.t(Steps), ...
-                                                    "DeltaPhi", DeltaPhi, ...
-                                                    "FitVals", DeltaPhiFit(Steps), ...
-                                                    "Fit", DeltaPhiFit);
             end
             
             app.ReadyLamp.Color = 'g';
@@ -1261,14 +1265,11 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     DeltaPhi(i)    = FindDeltaPhi(app,A,W,P,Steps(i)+Idx);
                 end
                 DeltaPhi      = app.CleanPhase(DeltaPhi);
-                app.Baseline.DeltaPhiTraceNonInterp = struct("Time", app.Data.t(Steps), ...
-                                                             "DeltaPhi", DeltaPhi);
                 DeltaPhiInterp = interp1(app.Data.t(Steps),...
                                          DeltaPhi,...
                                          app.Data.t,...
                                          'linear');
-                app.Baseline.DeltaPhiTraceInterp = struct("Time", app.Data.t, ...
-                                                          "DeltaPhi", DeltaPhiInterp);
+                
                 % Pre Phi0 DeltaPhi prediction via extrapolation of
                 % samples within DeltaPhiWindowSize from Phi0
                 [~,MinIdx] = min(abs(app.Data.t - ((app.ZeroPhiTimeField.Value)/1e6)));
@@ -1281,16 +1282,11 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     DeltaPhi(i) = FindDeltaPhi(app,A,W,P,Steps(i):Steps(i+1));
                 end
                 Steps      = round(movmean(Steps,2,'Endpoints','discard'));
-                
                 PhiFit     = fit(app.Data.t(Steps),app.CleanPhase(DeltaPhi),'poly1');                     
-                app.Baseline.DeltaPhiPreExtrapFit = struct("Time", app.Data.t(Steps), ...
-                                                           "DeltaPhi", DeltaPhi, ...
-                                                           "Fit", PhiFit);
+                
                 % Merging Pre & Post Phi0 Data
                 DeltaPhiInterp(isnan(DeltaPhiInterp)) = PhiFit(app.Data.t(isnan(DeltaPhiInterp)));
                 DeltaPhi   = DeltaPhiInterp;
-                app.Baseline.DeltaPhiFull = struct("Time", app.Data.t, ...
-                                                   "DeltaPhi", DeltaPhi);
                 
                 %Output
                 app.Data.v_baseline_removed = app.Data.v - A*cos((W*app.Data.t)+P+DeltaPhi);
