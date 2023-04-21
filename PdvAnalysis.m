@@ -95,7 +95,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
         Baseline                = struct('BasicRemoval',false,'DeltaPhiCorrection',false) % A struct containing information about potential baseline removal settings.
     end
     properties (Access=public)
-        ScopeTracePath          = '~/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. $$ScopeTracePath$$
+        ScopeTracePath          char {mustBeFolder} = '/Users/liamsmith/Documents/GitHub/ImportScope' % A valid path to a folder containing ScopeTrace, this is needed for correct data import and interfacing with ScopeTrace objects. $$ScopeTracePath$$
     end
     properties (Dependent, Access = private)
         RawProps
@@ -413,7 +413,9 @@ classdef PdvAnalysis < matlab.apps.AppBase
         function             CheckDependency(app)
             if ~exist('ScopeTrace','file')
                 addpath(app.ScopeTracePath);
-            else
+            end
+
+            if ~exist('ScopeTrace','file') == 2 
                 disp('ISSUE WITH ACCESSING SCOPETRACE, see installation section of readme or function help.')
             end
         end
@@ -1065,7 +1067,7 @@ classdef PdvAnalysis < matlab.apps.AppBase
                     Filename = 'VelocityPlot';
             end
             
-            [Filename,Pathname] = uiputfile({'*.eps';'*.pdf';'*.tiff'}, ...
+            [Filename,Pathname] = uiputfile({'*.eps';'*.svg';'*.pdf';'*.tiff'}, ...
                                             'Select Save Location', ...
                                             Filename);
             
@@ -1077,11 +1079,19 @@ classdef PdvAnalysis < matlab.apps.AppBase
             end
                                         
             if ischar(Pathname)
-                if contains(Filename,'.eps')
+                if endsWith(Filename,'.eps')
                     exportgraphics(obj,fullfile(Pathname,Filename))
-                elseif contains(Filename,'.pdf')
+                elseif endsWith(Filename,'.pdf')
                     exportgraphics(obj,fullfile(Pathname,Filename),'ContentType',"vector")
-                elseif contains(Filename,'tiff')
+                elseif endsWith(Filename,'.svg')
+                    newfigure = figure("MenuBar","none","Units","pixels","Position",[0,0,1000,1000]);
+                    copyobj(obj, newfigure);
+                    newfigure.Children
+                    newfigure.Children.Units = "normalized";
+                    newfigure.Children.Position = [0.025,0.025,0.95,0.95];
+                    saveas(newfigure,fullfile(Pathname,Filename))
+                    close(newfigure)
+                elseif endsWith(Filename,'tiff')
                     exportgraphics(obj,fullfile(Pathname,Filename),'Resolution',300)
                 else
                     exportgraphics(obj,fullfile(Pathname,Filename))
