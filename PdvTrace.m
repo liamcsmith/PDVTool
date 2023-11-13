@@ -50,7 +50,7 @@ classdef PdvTrace
 
     properties
         % RawTrace - This handles the raw data storage of the oscilloscope file. Including storage of any metadata and the ability to plot the raw data quickly.
-        RawTrace ScopeTrace
+        RawTrace
         % Title - A title for the associated PDV Trace, passed to the PdvAnalysis GUI for its UIFigure title when using the Analyse() method.
         Title {mustBeText} = 'GenericPDVTrace'
         % AnalysisParameters - The analysis parameter struct that is outputted from the PDVAnalysis GUI upon a successful analysis.
